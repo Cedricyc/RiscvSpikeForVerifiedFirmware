@@ -226,9 +226,24 @@ int htif_t::exit_code()
   return exitcode >> 1;
 }
 
+/*
+parse_arguments can reconize HTIF_LONG_OPTIONS
+in -- and + forms. If meets a -- type, exec flow
+go through switch (c) 'h','1024---1028'. If meets
+a + type, exec flow go through switch (c) '1' and 
+go retry or go done_processing.
+
+We add the semantic of ++ type, which
+states a pair, for example
+    ++load_file=../bbl0
+then:
+    argmap[load_file=]==../bbl0
+*/
+
 void htif_t::parse_arguments(int argc, char ** argv)
 {
   optind = 0; // reset optind as HTIF may run getopt _after_ others
+  std::string plus_plus_buf = "";
   while (1) {
     static struct option long_options[] = { HTIF_LONG_OPTIONS };
     int option_index = 0;
@@ -256,6 +271,15 @@ void htif_t::parse_arguments(int argc, char ** argv)
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 4:
         payloads.push_back(optarg);
+        break;
+      case PLUS_PLUS_SEMANTIC://(modified)
+        if(*optarg==0 && is_keyword.find(plus_plus_buf) == is_keyword.end()) {
+          // case of such as ++../bbl/build/bbl0 loading a file
+          argmap["normal_load"] = plus_plus_buf; 
+        } else {
+          // optarg is empty string {'\000'} if no value arg there
+          argmap[plus_plus_buf] = optarg; 
+        }
         break;
       case '?':
         if (!opterr)
@@ -302,6 +326,17 @@ void htif_t::parse_arguments(int argc, char ** argv)
             throw std::invalid_argument("Found +permissive when already parsing permissively");
           opterr = 0;
           break;
+        } 
+        // (modified)
+        else if (arg.find("++") == 0) {
+          size_t equ_pos = arg.find("=");
+          if(std::string::npos != equ_pos) 
+            plus_plus_buf = arg.substr(2,equ_pos-1),
+            optarg += equ_pos + 1;
+          else 
+            plus_plus_buf = arg.substr(2,arg.size()-2),
+            optarg += arg.size();
+          c = PLUS_PLUS_SEMANTIC;
         }
         else {
           if (!opterr)

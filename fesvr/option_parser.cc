@@ -11,6 +11,18 @@ void option_parser_t::option(char c, const char* s, int arg, std::function<void(
   opts.push_back(option_t(c, s, arg, action));
 }
 
+/*
+parse:
+INPUT the raw argv of the main function. Consisting of things like -m0x1234 --pc=0x5421 ++bbl0. 
+Note that 
+    1. ++ is behind all -- and -. - attach with a single char, -- attach with a string
+    2. - with args must be like -m1234, 1234 is the arg
+    3. -- with args must be like --memory=1234, 1234 is the arg
+EXEC all the action function of initizing argv of - and --. ++ is ignored.
+OUTPUT , return the first postion that is not -- and - option. For example, ++. the ++ and + will be process by htif_t::parse_argument
+
+*/
+
 const char* const* option_parser_t::parse(const char* const* argv0)
 {
   assert(argv0);

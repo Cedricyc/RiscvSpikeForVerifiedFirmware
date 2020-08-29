@@ -1,3 +1,24 @@
+A modified Spike for Verified Firmware
+==================================
+Changes:
+A comment of format of "(modified)" is added at every modified part of the code. You can "grep (modified)" to see all changes of code.
+A comment of format of "(unit test)" is added at every unit test source file.
+
+Detailed Modification
+(1) riscv/encoding.h DRAM_BASE changed to  0x93000000
+
+(2) ++ semantic parsing is added at htif::parse_arguments(int,char**)
+    Three types of ++ is considered:
+    eg:
+        a. ++../bbl/bbl0
+        b. ++load_rom
+        c. ++load_files=root_key.vbpubk__0x1600000,firmware.vblock__0x0160300
+    All of ++ is considered as pair and mapped into a unordered_map.
+
+
+
+
+
 Spike RISC-V ISA Simulator
 ============================
 

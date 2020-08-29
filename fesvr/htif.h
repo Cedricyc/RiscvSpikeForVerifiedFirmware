@@ -8,6 +8,7 @@
 #include "device.h"
 #include <string.h>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 class htif_t : public chunked_memif_t
@@ -59,6 +60,7 @@ class htif_t : public chunked_memif_t
   bool writezeros;
   std::vector<std::string> hargs;
   std::vector<std::string> targs;
+  std::unordered_map<std::string,std::string> argmap;//(modified)
   std::string sig_file;
   addr_t sig_addr; // torture
   addr_t sig_len; // torture
@@ -117,5 +119,18 @@ TARGET (RISC-V BINARY) OPTIONS\n\
 {"chroot",    required_argument, 0, HTIF_LONG_OPTIONS_OPTIND + 3 },     \
 {"payload",   required_argument, 0, HTIF_LONG_OPTIONS_OPTIND + 4 },     \
 {0, 0, 0, 0}
+
+#define PLUS_PLUS_SEMANTIC 2048
+const unordered_map<std::string,bool> is_keyword = {
+  {"load_pk",1},
+  {"load_rom",1},
+  {"chrome_rom",1},
+  {"load_files",1},
+  {"chip_config",1},
+  {"shift_file",1},
+  {"mems",1},
+  {"normal_load",1},
+  {"load_to_flash",1}
+};
 
 #endif // __HTIF_H
