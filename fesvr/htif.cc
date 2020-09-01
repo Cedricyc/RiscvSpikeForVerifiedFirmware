@@ -116,7 +116,13 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
     htif_t* htif;
   } preload_aware_memif(this);
 
-  return load_elf(path.c_str(), &preload_aware_memif, entry);
+  // (modified 3)
+  reg_t shift_value = 0;
+  if(htif_helper_bbl0_recognizer(path)) {
+    shift_value = argmap["shift_file="];
+  }
+
+  return load_elf(path.c_str(), &preload_aware_memif, entry, shift_value);
 }
 
 void htif_t::load_program()
@@ -272,7 +278,7 @@ void htif_t::parse_arguments(int argc, char ** argv)
       case HTIF_LONG_OPTIONS_OPTIND + 4:
         payloads.push_back(optarg);
         break;
-      case PLUS_PLUS_SEMANTIC://(modified)
+      case PLUS_PLUS_SEMANTIC://(modified 2)
         if(*optarg==0 && is_keyword.find(plus_plus_buf) == is_keyword.end()) {
           // case of such as ++../bbl/build/bbl0 loading a file
           argmap["normal_load"] = plus_plus_buf; 
@@ -327,7 +333,7 @@ void htif_t::parse_arguments(int argc, char ** argv)
           opterr = 0;
           break;
         } 
-        // (modified)
+        // (modified 2)
         else if (arg.find("++") == 0) {
           size_t equ_pos = arg.find("=");
           if(std::string::npos != equ_pos) 

@@ -92,7 +92,8 @@ private:
   bool mmio_load(reg_t addr, size_t len, uint8_t* bytes);
   bool mmio_store(reg_t addr, size_t len, const uint8_t* bytes);
   void make_dtb();
-  void set_rom();
+  // (modified 4)
+  //void set_rom();
 
   // presents a prompt for introspection into the simulation
   void interactive();

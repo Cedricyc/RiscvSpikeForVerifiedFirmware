@@ -1,0 +1,82 @@
+
+Hi YuCheng Chen,
+I talked with Dr. Tan and we have decided that we will ask you to help add the feature changes to Spike.
+
+First you will need to get a golden version of Spike from github  (git clone https://github.com/riscv/riscv-isa-sim.git)
+
+Note that for the riscv-isa-sim that you downloaded there will be two projects you will need to touch, the spike source code and the fesvr. 
+
+Now if you look at the verified firmware repository (vf not spike). In vf/device/sw/lib/Makefile you can see the spike command that we use to run the verified firmware.
+
+spike --pc=0x93000000 -m0x90000000:0x10000000,0x80000000:0x20000000 ++../bbl/build/bbl0  ++load_pk ++load_rom ++chrome_rom ++load_files=../../../keys/root_key.vbpubk__0x95600000,../../../keys/firmware.vblock__0x95601000,../bbl/build/bbl1__0x95603000,../../../keys/firmware_v2.vblock__0x95701000,../bbl/build/bbl1__0x95703000,gptk.bin__0x90000000  ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc  ++shift_file ++mems=0x90000000:0x10000000,0x80000000:0x20000000 ++load_to_flash
+
+Now I will explain each option, which part of the source code it is and whether or not you not to implement it:
+
+SPIKE 
+--pc=0x93000000 -> already in the original Spike, this just tells it where to start running from. However you might need to change the DRAM_BASE in riscv/encoding.h to 0x93000000.
+
+ -m0x90000000:0x10000000,0x80000000:0x20000000 -> already in original spike, tells spike what memory locations to create
+
+FESVR
+All changes here will be in fesvr/htif.cc unless stated otherwise
+
+++../bbl/build/bbl0, this is for loading a file into the fesvr, however we have added a ++ symbol in the front to help make it more readable, so you will need to add the functionality for parsing the ++ as well.
+
+++load_pk, you will not need to implement this.
+
+++load_rom, we moved the ROM section created by spike to the fesvr, so the fesvr creates and writes the ROM to an address instead of spike. This is the switch to do so
+
+++chrome_rom, this is a simple switch statement that tells the fesvr to load the ROM (++load_rom) to 800d0000
+
+++load_files=../../../keys/root_key.vbpubk__0x95600000,../../../keys/firmware.vblock__0x95601000,../bbl/build/bbl1__0x95603000,../../../keys/firmware_v2.vblock__0x95701000,../bbl/build/bbl1__0x95703000,gptk.bin__0x90000000, this is a simple parser for the fesvr where it takes a pair of file and address, comma separated, and writes the files to those address ie ../../../keys/root_key.vbpubk__0x95600000 means write ../../../keys/root_key.vbpubk to address 0x95600000.
+
+ ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc, this option is to send over information to the dtb in fesvr as the dtb needs to know the number of cores, frequency, xlen, and isa for that run.
+
+++shift_file, this option is for the elf loading. For bbl0, it will self copy its code to a different address than where it's initially loaded at. ++shift_file tells the fesvr elfloader to load the binary to (BBL0_COMPILED_BASE_ADDR + a shift amount)
+
+++mems=0x90000000:0x10000000,0x80000000:0x20000000, this option is the same as the -m option in Spike above, just moved to the fesvr.
+
+++load_to_flash, this is another switch that tells the dtb making process what the start pc is (in this case it will be 0x93000000
+
+In summary this is probably a good timeline of the order you should do these tasks in:
+
+1) Change DRAM_BASE in Spike in riscv/encoding.h to 0x93000000
+
+2) Add the ++ parsing functionality to fesvr (fesvr/htif.cc) ie ++load_pk, this will mean that argmap["load_pk"].length() > 0.
+
+3) Add the = parsing functionality to fesvr (fesvr/htif.cc), ie ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc, this will mean that argmap["chip_config="] == nc_1__f_1000__xlen_64__isa_rv64imafdc
+
+4) Add the above needed options to the argmap in fesvr/htif.cc (ie load_rom, ++chip_config=...), at this point you don't need to have their functionalities done, just have fesvr recognize them as valid options.
+
+5) Add another function in fesvr/elfloader.cc. This function will be exactly the same as load_elf, but with another parameter, int64_t shift, that will be added to the address for the memif->write address.
+
+6) Replace the original load_elf function in fesvr/htif.cc with your new load_elf_shift function with appropriate shift parameter
+    only for bbl0 have shift_value
+7) Copy the ROM making from Spike to fesvr (this is the whole make_dtb process in Spike).
+    set_rom require two outsider condition
+    (1) start_pc for reset_vector writing into ROM
+    (2) dtb (a customized one) writing into ROM
+8) Copy the make_mems functionality from Spike in order to create functionality for the "++make_mems=" option 
+    (1) I guess this ++mem is only for the set_rom, -m_ is for sim_c, they are separated
+9) Create the ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc functionality to correctly pass the core count, frequency, xlen, and isa to the dtb process in 7)
+    (1) this is for building the dtb string. So I guess dtb_file for set_rom should be empty. I can remove that part of logic.
+10) add ++load_flash functionality to the make_dtb process in 7) to allow for different start_pc defined for dtb
+    (1) so maybe load_flash should follow with a parameter? indicating the start_pc? yes
+11) Combine 8), 9), 10) into 7) in order to be able to make a custom dtb
+
+12) Use the dtb created by 11) to make the functionality for ++load_rom, basically the you can see is load_rom to be a bigger function and all of 7-11 to be inside of it. Just make sure to make as modularized as possible.
+    (1) all is for this, making rom
+13) Add ++chrome_rom to 12) to finish functionality for ++load_rom
+    (1) so, if this is on, change the place where rom write to into 800d0000
+14) Remove the make_dtb process from Spike (riscv/sim.cc)
+    (1) can this be support? you need to dig the rely
+15) Add the functionality for ++load_files= into fesvr.
+    (1) the semantic doesn't seem difficult, just read something and write to certain mem postition
+16) Compile and run with these options, it should look very similar to: 
+    
+spike --pc=0x93000000 -m0x90000000:0x10000000,0x80000000:0x20000000 ++../bbl/build/bbl0 ++load_rom ++chrome_rom ++load_files=../../../keys/root_key.vbpubk__0x95600000,../../../keys/firmware.vblock__0x95601000,../bbl/build/bbl1__0x95603000,../../../keys/firmware_v2.vblock__0x95701000,../bbl/build/bbl1__0x95703000,gptk.bin__0x90000000  ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc  ++shift_file ++mems=0x90000000:0x10000000,0x80000000:0x20000000 ++load_to_flash
+
+Let me know if you have any questions or issues.
+
+Thanks,
+Derek

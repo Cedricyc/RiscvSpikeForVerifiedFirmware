@@ -15,7 +15,7 @@
 #include <vector>
 #include <map>
 
-std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* entry)
+std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* entry, reg_t shift_value)// (modified 3)
 {
   int fd = open(fn, O_RDONLY);
   struct stat s;
@@ -48,10 +48,10 @@ std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* 
       if(bswap(ph[i].p_type) == PT_LOAD && bswap(ph[i].p_memsz)) {	\
         if (bswap(ph[i].p_filesz)) {					\
           assert(size >= bswap(ph[i].p_offset) + bswap(ph[i].p_filesz)); \
-          memif->write(bswap(ph[i].p_paddr), bswap(ph[i].p_filesz), (uint8_t*)buf + bswap(ph[i].p_offset)); \
+          memif->write(bswap(ph[i].p_paddr) + bswap(shift_value)/*(modified 3)*/, bswap(ph[i].p_filesz), (uint8_t*)buf + bswap(ph[i].p_offset)); \
         } \
         zeros.resize(bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz)); \
-        memif->write(bswap(ph[i].p_paddr) + bswap(ph[i].p_filesz), bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz), &zeros[0]); \
+        memif->write(bswap(ph[i].p_paddr) + bswap(ph[i].p_filesz) + bswap(shift_value)/* (modified 3) */, bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz), &zeros[0]); \
       } \
     } \
     shdr_t* sh = (shdr_t*)(buf + bswap(eh->e_shoff)); \

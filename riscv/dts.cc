@@ -14,7 +14,7 @@ std::string make_dts(size_t insns_per_rtc_tick, size_t cpu_hz,
                      const char* bootargs,
                      std::vector<processor_t*> procs,
                      std::vector<std::pair<reg_t, mem_t*>> mems)
-{
+{ // feels like making a default one based on current mems/procs and so on if no customized dts is specified
   std::stringstream s;
   s << std::dec <<
          "/dts-v1/;\n"

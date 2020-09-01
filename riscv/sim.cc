@@ -217,8 +217,11 @@ bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
   return bus.store(addr, len, bytes);
 }
 
+// input dtb_file , output dtb string. 
+// if dtb_file is empty, use current info to build one dts, then use dts to build dtb
+
 void sim_t::make_dtb()
-{
+{ 
   if (!dtb_file.empty()) {
     std::ifstream fin(dtb_file.c_str(), std::ios::binary);
     if (!fin.good()) {
@@ -240,7 +243,7 @@ void sim_t::set_rom()
 {
   const int reset_vec_size = 8;
 
-  start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc;
+  start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc; // as parameter in htif
 
   uint32_t reset_vec[reset_vec_size] = {
     0x297,                                      // auipc  t0,0x0

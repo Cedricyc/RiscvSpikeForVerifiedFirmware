@@ -31,6 +31,8 @@ class htif_t : public chunked_memif_t
  protected:
   virtual void reset() = 0;
 
+  void set_rom();
+  
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
   virtual void clear_chunk(addr_t taddr, size_t len);
@@ -60,7 +62,7 @@ class htif_t : public chunked_memif_t
   bool writezeros;
   std::vector<std::string> hargs;
   std::vector<std::string> targs;
-  std::unordered_map<std::string,std::string> argmap;//(modified)
+  std::unordered_map<std::string,std::string> argmap;//(modified 2)
   std::string sig_file;
   addr_t sig_addr; // torture
   addr_t sig_len; // torture
@@ -80,6 +82,18 @@ class htif_t : public chunked_memif_t
   friend class memif_t;
   friend class syscall_t;
 };
+
+
+// recognize it if path ends with bbl0
+bool htif_helper_bbl0_recognizer(std::string &path) {
+  #ifdef VF_DEBUG
+    printf("bbl0 recognizer %s\n",path.c_str());
+  #endif
+  size_t len = path.size();
+  if(len-4<0) 
+    return 0;
+  return path[len-4]=='b' && path[len-3]=='b' && path[len-2]=='l' && path[len-1] == '0';
+}
 
 /* Alignment guide for emulator.cc options:
   -x, --long-option        Description with max 80 characters --------------->\n\
