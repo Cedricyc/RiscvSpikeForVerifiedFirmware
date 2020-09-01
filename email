@@ -69,11 +69,13 @@ In summary this is probably a good timeline of the order you should do these tas
 13) Add ++chrome_rom to 12) to finish functionality for ++load_rom
     (1) so, if this is on, change the place where rom write to into 800d0000
 14) Remove the make_dtb process from Spike (riscv/sim.cc)
-    (1) can this be support? you need to dig the rely
+    (1) If this is removed, two function might lose support at sim_t constructor
+    (2) a. the clint for interruption is relied on make_dtb
+    (3) b. proc[i]->set_pmp is corrupted
 15) Add the functionality for ++load_files= into fesvr.
     (1) the semantic doesn't seem difficult, just read something and write to certain mem postition
 16) Compile and run with these options, it should look very similar to: 
-    
+
 spike --pc=0x93000000 -m0x90000000:0x10000000,0x80000000:0x20000000 ++../bbl/build/bbl0 ++load_rom ++chrome_rom ++load_files=../../../keys/root_key.vbpubk__0x95600000,../../../keys/firmware.vblock__0x95601000,../bbl/build/bbl1__0x95603000,../../../keys/firmware_v2.vblock__0x95701000,../bbl/build/bbl1__0x95703000,gptk.bin__0x90000000  ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc  ++shift_file ++mems=0x90000000:0x10000000,0x80000000:0x20000000 ++load_to_flash
 
 Let me know if you have any questions or issues.
