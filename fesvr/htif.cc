@@ -232,6 +232,92 @@ int htif_t::exit_code()
   return exitcode >> 1;
 }
 
+//(modified 5)
+// objective: get dtb string of htif
+// using argmap[chip_config=] to make dtb through dts compiling way
+// dtb_file way of getting dtb is abandon here.
+
+void htif_t::make_dtb()
+{ 
+  //----parsing the chip_config----
+  auto &tmp = argmap["chip_config="];
+  for(int i=0; i<tmp.length(); i++) {
+    int j , contd = 0;
+    for(j = i ; j<tmp.length() ; j++)  {
+      if(tmp[j]=='_') {
+        contd ++;
+        if(contd == 2) {
+          j ++;
+          break;
+        }
+      }
+    }
+
+    i = j;
+  }
+  //----dts generated from chip_config
+  std::string dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
+  //----building through dts
+  dtb = dts_compile(dts);
+}
+//(modified )
+void htif_t::load_rom() {
+  make_dtb();
+}
+
+//(modified 4)
+// outside input of this func: start_pc,dtb_file
+void htif_t::set_rom(reg_t start_pc)
+{
+  const int reset_vec_size = 8;
+
+  //start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc; // as parameter in htif
+
+  uint32_t reset_vec[reset_vec_size] = {
+    0x297,                                      // auipc  t0,0x0
+    0x28593 + (reset_vec_size * 4 << 20),       // addi   a1, t0, &dtb
+    0xf1402573,                                 // csrr   a0, mhartid
+    get_core(0)->get_xlen() == 32 ?
+      0x0182a283u :                             // lw     t0,24(t0)
+      0x0182b283u,                              // ld     t0,24(t0)
+    0x28067,                                    // jr     t0
+    0,
+    (uint32_t) (start_pc & 0xffffffff),
+    (uint32_t) (start_pc >> 32)
+  };
+  for(int i = 0; i < reset_vec_size; i++)
+    reset_vec[i] = to_le(reset_vec[i]);
+
+  std::vector<char> rom((char*)reset_vec, (char*)reset_vec + sizeof(reset_vec));
+
+  std::string dtb;
+  if (!dtb_file.empty()) {
+    std::ifstream fin(dtb_file.c_str(), std::ios::binary);
+    if (!fin.good()) {
+      std::cerr << "can't find dtb file: " << dtb_file << std::endl;
+      exit(-1);
+    }
+
+    std::stringstream strstream;
+    strstream << fin.rdbuf();
+
+    dtb = strstream.str();
+  } else {
+    dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
+    dtb = dts_compile(dts);
+  }
+
+  rom.insert(rom.end(), dtb.begin(), dtb.end());
+  const int align = 0x1000;
+  rom.resize((rom.size() + align - 1) / align * align);
+
+  boot_rom.reset(new rom_device_t(rom));
+  bus.add_device(DEFAULT_RSTVEC, boot_rom.get());
+}
+
+
+
+
 /*
 parse_arguments can reconize HTIF_LONG_OPTIONS
 in -- and + forms. If meets a -- type, exec flow

@@ -219,9 +219,8 @@ bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 
 // input dtb_file , output dtb string. 
 // if dtb_file is empty, use current info to build one dts, then use dts to build dtb
-
-void sim_t::make_dtb()
-{ 
+/*
+void sim_t::make_dtb() {
   if (!dtb_file.empty()) {
     std::ifstream fin(dtb_file.c_str(), std::ios::binary);
     if (!fin.good()) {
@@ -237,8 +236,9 @@ void sim_t::make_dtb()
     dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
     dtb = dts_compile(dts);
   }
-}
+}*/
 
+/*
 void sim_t::set_rom()
 {
   const int reset_vec_size = 8;
@@ -285,7 +285,7 @@ void sim_t::set_rom()
 
   boot_rom.reset(new rom_device_t(rom));
   bus.add_device(DEFAULT_RSTVEC, boot_rom.get());
-}
+}*/
 
 char* sim_t::addr_to_mem(reg_t addr) {
   if (!paddr_ok(addr))

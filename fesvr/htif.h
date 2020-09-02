@@ -31,8 +31,14 @@ class htif_t : public chunked_memif_t
  protected:
   virtual void reset() = 0;
   // (modified 4)
-  //void set_rom();
-  
+  virtual void set_rom(reg_t start_pc);
+
+  // (modified )
+  virtual void load_rom();
+
+  // (modified 5) , use chip_config option to make dtb
+  virtual void make_dtb();
+
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
   virtual void clear_chunk(addr_t taddr, size_t len);
