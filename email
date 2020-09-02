@@ -67,7 +67,7 @@ In summary this is probably a good timeline of the order you should do these tas
 12) Use the dtb created by 11) to make the functionality for ++load_rom, basically the you can see is load_rom to be a bigger function and all of 7-11 to be inside of it. Just make sure to make as modularized as possible.
     (1) all is for this, making rom
 13) Add ++chrome_rom to 12) to finish functionality for ++load_rom
-    (1) so, if this is on, change the place where rom write to into 800d0000
+    (1) so, if this is on, change the place where rom write to into 800d0000 (the bus addr?)
 14) Remove the make_dtb process from Spike (riscv/sim.cc)
     (1) If this is removed, two function might lose support at sim_t constructor
     (2) a. the clint for interruption is relied on make_dtb

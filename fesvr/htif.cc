@@ -119,7 +119,7 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
   // (modified 3)
   reg_t shift_value = 0;
   if(htif_helper_bbl0_recognizer(path)) {
-    shift_value = argmap["shift_file="];
+    shift_value = std::stoull(argmap["shift_file="]);
   }
 
   return load_elf(path.c_str(), &preload_aware_memif, entry, shift_value);

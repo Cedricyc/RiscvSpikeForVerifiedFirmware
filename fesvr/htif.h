@@ -30,8 +30,8 @@ class htif_t : public chunked_memif_t
 
  protected:
   virtual void reset() = 0;
-
-  void set_rom();
+  // (modified 4)
+  //void set_rom();
   
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
@@ -135,7 +135,7 @@ TARGET (RISC-V BINARY) OPTIONS\n\
 {0, 0, 0, 0}
 
 #define PLUS_PLUS_SEMANTIC 2048
-const unordered_map<std::string,bool> is_keyword = {
+const std::unordered_map<std::string,bool> is_keyword = {
   {"load_pk",1},
   {"load_rom",1},
   {"chrome_rom",1},
