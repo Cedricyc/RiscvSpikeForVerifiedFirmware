@@ -37,7 +37,11 @@ class htif_t : public chunked_memif_t
   virtual void load_rom();
 
   // (modified 5) , use chip_config option to make dtb
-  virtual void make_dtb();
+  virtual void make_dtb(reg_t initrd_start, reg_t initrd_end, const char *bootargs);
+
+  // (modified 7) 
+  
+
 
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
@@ -58,10 +62,30 @@ class htif_t : public chunked_memif_t
   // range to memory, because it has already been loaded through a sideband
   virtual bool is_address_preloaded(addr_t taddr, size_t len) { return false; }
 
+  // THE TRANSPLANT INTERFACE (modified)
+  std::vector<processor_t*> procs; // (modified 5) protected
+  size_t freq;
+  std::string htif_isa;
+  std::unique_ptr<rom_device_t> boot_rom; // (modified 7) the make rom
+  std::vector<std::pair<reg_t, mem_t*>> htif_mems;
+  std::string dtb;
+  reg_t start_pc;
  private:
   void parse_arguments(int argc, char ** argv);
   void register_devices();
   void usage(const char * program_name);
+
+  //(modified 5)
+  void make_dtb(reg_t initrd_start, reg_t initrd_end, const char* bootargs);
+  //(modified 6)
+  void chip_config();
+  //(modified 7)
+  void mems_config();
+  //(modified 8)
+  void make_flash_addr();
+
+  void normal_load();
+  void load_file();
 
   memif_t mem;
   reg_t entry;
@@ -89,6 +113,55 @@ class htif_t : public chunked_memif_t
   friend class syscall_t;
 };
 
+static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* arg)
+{
+  // handle legacy mem argument
+  char* p;
+  auto mb = strtoull(arg, &p, 0);
+  if (*p == 0) {
+    reg_t size = reg_t(mb) << 20;
+    if (size != (size_t)size)
+      throw std::runtime_error("Size would overflow size_t");
+    return std::vector<std::pair<reg_t, mem_t*>>(1, std::make_pair(reg_t(DRAM_BASE), new mem_t(size)));
+  }
+
+  // handle base/size tuples
+  std::vector<std::pair<reg_t, mem_t*>> res;
+  while (true) {
+    auto base = strtoull(arg, &p, 0);
+    if (!*p || *p != ':') {
+      printf("modified 7: err parsing, expecting :\n");
+      assert(0);
+    }
+    auto size = strtoull(p + 1, &p, 0);
+
+    // page-align base and size
+    auto base0 = base, size0 = size;
+    size += base0 % PGSIZE;
+    base -= base0 % PGSIZE;
+    if (size % PGSIZE != 0)
+      size += PGSIZE - size % PGSIZE;
+
+    if (base + size < base){
+      printf("modified 7 : base+size<base\n");
+      assert(0);
+    }
+
+    if (size != size0) {
+      fprintf(stderr, "Warning: the memory at  [0x%llX, 0x%llX] has been realigned\n"
+                      "to the %ld KiB page size: [0x%llX, 0x%llX]\n",
+              base0, base0 + size0 - 1, PGSIZE / 1024, base, base + size - 1);
+    }
+
+    res.push_back(std::make_pair(reg_t(base), new mem_t(size)));
+    if (!*p)
+      break;
+    if (*p != ',') {
+      puts("modified 7: expected ,")
+      assert(0);
+    }
+    arg = p + 1;
+  }
 
 // recognize it if path ends with bbl0
 bool htif_helper_bbl0_recognizer(std::string &path) {

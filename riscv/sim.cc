@@ -27,7 +27,7 @@ static void handle_signal(int sig)
 }
 
 sim_t::sim_t(const char* isa, const char* priv, const char* varch,
-             size_t nprocs, bool halted, bool real_time_clint,
+             /*size_t nprocs,*/ bool halted, bool real_time_clint,
              reg_t initrd_start, reg_t initrd_end, const char* bootargs,
              reg_t start_pc, std::vector<std::pair<reg_t, mem_t*>> mems,
              std::vector<std::pair<reg_t, abstract_device_t*>> plugin_devices,
@@ -36,10 +36,10 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              const debug_module_config_t &dm_config,
              const char *log_path,
              bool dtb_enabled, const char *dtb_file)
-  : htif_t(args),
+  : htif_t(args,initrd_start,initrd_end,bootargs),
     mems(mems),
     plugin_devices(plugin_devices),
-    procs(std::max(nprocs, size_t(1))),
+//    procs(std::max(nprocs, size_t(1))), (modified 5)
     initrd_start(initrd_start),
     initrd_end(initrd_end),
     bootargs(bootargs),
@@ -75,13 +75,17 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
       exit(1);
   }
 
+  // (modified 6)
+  std::string isa_str = isa;
+  if(htif_isa != "") 
+    isa_str = htif_isa;
   for (size_t i = 0; i < nprocs; i++) {
     int hart_id = hartids.empty() ? i : hartids[i];
-    procs[i] = new processor_t(isa, priv, varch, this, hart_id, halted,
+    procs[i] = new processor_t(isa_str.c_str(), priv, varch, this, hart_id, halted,
                                log_file.get());
   }
 
-  make_dtb();
+  //make_dtb();
 
   clint.reset(new clint_t(procs, CPU_HZ / INSNS_PER_RTC_TICK, real_time_clint));
   reg_t clint_base;
@@ -301,8 +305,10 @@ char* sim_t::addr_to_mem(reg_t addr) {
 
 void sim_t::reset()
 {
+/*
   if (dtb_enabled)
     set_rom();
+    */
 }
 
 void sim_t::idle()

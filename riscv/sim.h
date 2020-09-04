@@ -61,7 +61,7 @@ private:
   std::vector<std::pair<reg_t, mem_t*>> mems;
   std::vector<std::pair<reg_t, abstract_device_t*>> plugin_devices;
   mmu_t* debug_mmu;  // debug port into main memory
-  std::vector<processor_t*> procs;
+  //std::vector<processor_t*> procs; (modified 5)
   reg_t initrd_start;
   reg_t initrd_end;
   const char* bootargs;
@@ -70,7 +70,7 @@ private:
   std::string dtb;
   std::string dtb_file;
   bool dtb_enabled;
-  std::unique_ptr<rom_device_t> boot_rom;
+  
   std::unique_ptr<clint_t> clint;
   bus_t bus;
   log_file_t log_file;

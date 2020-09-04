@@ -60,6 +60,7 @@ In summary this is probably a good timeline of the order you should do these tas
     (1) I guess this ++mem is only for the set_rom, -m_ is for sim_c, they are separated
 9) Create the ++chip_config=nc_1__f_1000__xlen_64__isa_rv64imafdc functionality to correctly pass the core count, frequency, xlen, and isa to the dtb process in 7)
     (1) this is for building the dtb string. So I guess dtb_file for set_rom should be empty. I can remove that part of logic.
+    (2) [new prob] is the f_1000 with unit of MHZ?
 10) add ++load_flash functionality to the make_dtb process in 7) to allow for different start_pc defined for dtb
     (1) so maybe load_flash should follow with a parameter? indicating the start_pc? yes
 11) Combine 8), 9), 10) into 7) in order to be able to make a custom dtb

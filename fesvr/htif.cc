@@ -50,13 +50,23 @@ htif_t::htif_t()
   signal(SIGABRT, &handle_signal); // we still want to call static destructors
 }
 
-htif_t::htif_t(int argc, char** argv) : htif_t()
+htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs) : htif_t()
 {
   parse_arguments(argc, argv);
+
+  //(modified 6)
+  chip_config();
+  mems_config();
+  make_dtb(initrd_start_, initrd_end_, bootargs);
+  make_flash_addr();
+
+  load_file();
+  normal_load(); 
+
   register_devices();
 }
 
-htif_t::htif_t(const std::vector<std::string>& args) : htif_t()
+htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs) : htif_t()
 {
   int argc = args.size() + 1;
   char * argv[argc];
@@ -66,6 +76,16 @@ htif_t::htif_t(const std::vector<std::string>& args) : htif_t()
   }
 
   parse_arguments(argc, argv);
+
+  //(modified 6)
+  chip_config();
+  mems_config();
+  make_dtb(initrd_start_, initrd_end_, bootargs);
+  make_flash_addr();
+
+  load_file();
+  normal_load();
+
   register_devices();
 }
 
@@ -150,6 +170,16 @@ void htif_t::load_program()
   }
 }
 
+void htif_t::load_file() 
+{
+
+}
+
+void htif_t::normal_load() 
+{
+
+}
+
 void htif_t::stop()
 {
   if (!sig_file.empty() && sig_len) // print final torture test signature
@@ -232,42 +262,82 @@ int htif_t::exit_code()
   return exitcode >> 1;
 }
 
+//(modified 8)
+void htif_t::make_flash_addr() 
+{
+  start_pc = std::stoull(argmap["load_flash="]);
+}
+
+//(modified 7) 
+void htif_t::mems_config() 
+{
+  htif_mems = htif_helper_make_mems(argmap["mems="]);
+}
+
+//(modified 6)
+void htif_t::chip_config() 
+{
+  size_t frequency = INSNS_PER_RTC_TICK, cpu_num = 1;
+  htif_isa = "";
+  //----parsing the chip_config----
+  auto &tmp = argmap["chip_config="];
+  #ifdef VF_DEBUG
+  printf("make_dtb: argmap[chip_config]=%s\n",tmp);
+  #endif
+  for(int i = 0,last = 0; i<=tmp.length(); i++) {
+    if(i==tmp.length() || 
+       (i<tmp.length()-1 && tmp[i] == '_' && tmp[i+1]=='_'))  {
+      std::string tmpsub = tmp.substr(last,i-last);
+      size_t position = tmpsub.find('_');
+      if(position == std::string::npos) {
+        printf("modified 5: at chip_config, pattern not found for 
+                chip_config=%s,subitem=%s",tmp.c_str(),tmpsub.c_str());
+        assert(0);
+      } 
+      std::string pair_first = tmpsub.substr(0,position-1), 
+                  pair_second = tmpsub.substr(position+1,tmpsub.length()-position-1);
+      #ifdef VF_DEBUG
+      printf("  tmpsub=%s\n  pair_first=%s,pair_second=%s\n")
+      #endif
+      switch(pair_first) {
+        case "nc" :
+          cpu_num = std::stoull(pair_second);
+          break;
+        case "f" :
+          frequency = std::stdoull(pair_second);
+          break;
+        case "xlen" :
+          // do sth
+          break;
+        case "isa" :
+          htif_isa = pair_second;
+          break;
+      }
+    }
+  }
+  // init cpu vector
+  procs.resize(cpu_num);
+  // init frequency
+  freq = frequency;
+
+}
+
 //(modified 5)
 // objective: get dtb string of htif
 // using argmap[chip_config=] to make dtb through dts compiling way
 // dtb_file way of getting dtb is abandon here.
 
-void htif_t::make_dtb()
+void htif_t::make_dtb(reg_t initrd_start, reg_t initrd_end, const char *bootargs)
 { 
-  //----parsing the chip_config----
-  auto &tmp = argmap["chip_config="];
-  for(int i=0; i<tmp.length(); i++) {
-    int j , contd = 0;
-    for(j = i ; j<tmp.length() ; j++)  {
-      if(tmp[j]=='_') {
-        contd ++;
-        if(contd == 2) {
-          j ++;
-          break;
-        }
-      }
-    }
-
-    i = j;
-  }
   //----dts generated from chip_config
-  std::string dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
+  std::string dts = make_dts(INSNS_PER_RTC_TICK, freq/*CPU_HZ*/, initrd_start, initrd_end, bootargs, procs, htif_mems);
   //----building through dts
   dtb = dts_compile(dts);
-}
-//(modified )
-void htif_t::load_rom() {
-  make_dtb();
 }
 
 //(modified 4)
 // outside input of this func: start_pc,dtb_file
-void htif_t::set_rom(reg_t start_pc)
+void htif_t::set_rom()
 {
   const int reset_vec_size = 8;
 
@@ -290,6 +360,7 @@ void htif_t::set_rom(reg_t start_pc)
 
   std::vector<char> rom((char*)reset_vec, (char*)reset_vec + sizeof(reset_vec));
 
+  /*
   std::string dtb;
   if (!dtb_file.empty()) {
     std::ifstream fin(dtb_file.c_str(), std::ios::binary);
@@ -305,7 +376,7 @@ void htif_t::set_rom(reg_t start_pc)
   } else {
     dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
     dtb = dts_compile(dts);
-  }
+  }*/
 
   rom.insert(rom.end(), dtb.begin(), dtb.end());
   const int align = 0x1000;

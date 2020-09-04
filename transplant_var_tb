@@ -1,0 +1,26 @@
+
+rule of option
+a. ++ have higher priority than -
+b. transplant variable in htif_t must mark with prefix "htif_", 
+unless it's designed to replace the variable in sim_t
+
+
+chip_config:
+    #proc: cpu vector
+        transfer from sim_t to htif_t
+        overwritten by ++chip_config
+        -p won't effect, please use ++
+    #frequency:
+        f_1000 ~ frequency = 1000MHZ(1000000000HZ)
+    #xlen:
+        pass, I don't know the difference between 
+        xlen and rv(64) of string isa
+
+
+rom write to different bus addr
+    #bus_t only store a pointer
+    #pc will directly point to that address, and exec step by step, so that need to write to the memory continuously
+
+
+start_pc
+    #should I change the state_t::reset's pc init value?
