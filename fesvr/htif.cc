@@ -50,7 +50,7 @@ htif_t::htif_t()
   signal(SIGABRT, &handle_signal); // we still want to call static destructors
 }
 
-htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs) : htif_t()
+htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus) : htif_t()
 {
   parse_arguments(argc, argv);
 
@@ -59,14 +59,17 @@ htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, co
   mems_config();
   make_dtb(initrd_start_, initrd_end_, bootargs);
   make_flash_addr();
+  chrome_rom();
 
   load_file();
   normal_load(); 
 
+  set_rom(start_pc,bus);
+
   register_devices();
 }
 
-htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs) : htif_t()
+htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs,bus_t &bus) : htif_t()
 {
   int argc = args.size() + 1;
   char * argv[argc];
@@ -82,6 +85,7 @@ htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t 
   mems_config();
   make_dtb(initrd_start_, initrd_end_, bootargs);
   make_flash_addr();
+  chrome_rom();
 
   load_file();
   normal_load();
@@ -177,7 +181,9 @@ void htif_t::load_file()
 
 void htif_t::normal_load() 
 {
-
+  for(auto &p : plus_plus_load) {
+    load_payload(p,)
+  }
 }
 
 void htif_t::stop()
@@ -262,6 +268,14 @@ int htif_t::exit_code()
   return exitcode >> 1;
 }
 
+void htif_t::chrome_rom() 
+{
+  rst_vec = DEFAULT_RSTVEC;
+  if(argmap.find("chrome_rom")) {
+    rst_vec = 0x800d0000;
+  }
+}
+
 //(modified 8)
 void htif_t::make_flash_addr() 
 {
@@ -337,10 +351,10 @@ void htif_t::make_dtb(reg_t initrd_start, reg_t initrd_end, const char *bootargs
 
 //(modified 4)
 // outside input of this func: start_pc,dtb_file
-void htif_t::set_rom()
+void htif_t::set_rom(bus_t &bus)
 {
   const int reset_vec_size = 8;
-
+  
   //start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc; // as parameter in htif
 
   uint32_t reset_vec[reset_vec_size] = {
@@ -383,7 +397,7 @@ void htif_t::set_rom()
   rom.resize((rom.size() + align - 1) / align * align);
 
   boot_rom.reset(new rom_device_t(rom));
-  bus.add_device(DEFAULT_RSTVEC, boot_rom.get());
+  bus.add_device(rst_vec, boot_rom.get());
 }
 
 
@@ -438,7 +452,7 @@ void htif_t::parse_arguments(int argc, char ** argv)
       case PLUS_PLUS_SEMANTIC://(modified 2)
         if(*optarg==0 && is_keyword.find(plus_plus_buf) == is_keyword.end()) {
           // case of such as ++../bbl/build/bbl0 loading a file
-          argmap["normal_load"] = plus_plus_buf; 
+          plus_plus_load.push_back(plus_plus_buf);
         } else {
           // optarg is empty string {'\000'} if no value arg there
           argmap[plus_plus_buf] = optarg; 

@@ -31,7 +31,7 @@ class htif_t : public chunked_memif_t
  protected:
   virtual void reset() = 0;
   // (modified 4)
-  virtual void set_rom(reg_t start_pc);
+  virtual void set_rom(bus_t &bus);
 
   // (modified )
   virtual void load_rom();
@@ -70,6 +70,7 @@ class htif_t : public chunked_memif_t
   std::vector<std::pair<reg_t, mem_t*>> htif_mems;
   std::string dtb;
   reg_t start_pc;
+  reg_t rst_vec;
  private:
   void parse_arguments(int argc, char ** argv);
   void register_devices();
@@ -83,6 +84,7 @@ class htif_t : public chunked_memif_t
   void mems_config();
   //(modified 8)
   void make_flash_addr();
+  void chrome_rom();
 
   void normal_load();
   void load_file();
@@ -92,6 +94,7 @@ class htif_t : public chunked_memif_t
   bool writezeros;
   std::vector<std::string> hargs;
   std::vector<std::string> targs;
+  std::vector<std::string> plus_plus_load;
   std::unordered_map<std::string,std::string> argmap;//(modified 2)
   std::string sig_file;
   addr_t sig_addr; // torture

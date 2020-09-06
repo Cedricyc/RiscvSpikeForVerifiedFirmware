@@ -22,7 +22,7 @@
 
 processor_t::processor_t(const char* isa, const char* priv, const char* varch,
                          simif_t* sim, uint32_t id, bool halt_on_reset,
-                         FILE* log_file)
+                         FILE* log_file,reg_t rstvec)
   : debug(false), halt_request(HR_NONE), sim(sim), ext(NULL), id(id), xlen(0),
   histogram_enabled(false), log_commits_enabled(false),
   log_file(log_file), halt_on_reset(halt_on_reset),
@@ -44,7 +44,7 @@ processor_t::processor_t(const char* isa, const char* priv, const char* varch,
 
   set_pmp_granularity(1 << PMP_SHIFT);
   set_pmp_num(state.max_pmp);
-  reset();
+  reset(rstvec);
 }
 
 processor_t::~processor_t()
@@ -296,9 +296,10 @@ void processor_t::parse_isa_string(const char* str)
     bad_isa_string(str, "'Zvqmac' extension requires 'V'");
 }
 
-void state_t::reset(reg_t max_isa)
+void state_t::reset(reg_t rstvec,reg_t max_isa)
 {
-  pc = DEFAULT_RSTVEC;
+  //(modified chrome_rom)
+  pc = rstvec;
   XPR.reset();
   FPR.reset();
 
@@ -449,9 +450,9 @@ void processor_t::enable_log_commits()
 }
 #endif
 
-void processor_t::reset()
+void processor_t::reset(reg_t rstvec)
 {
-  state.reset(max_isa);
+  state.reset(rstvec,max_isa);
 
   state.mideleg = supports_extension('H') ? MIDELEG_FORCED_MASK : 0;
 

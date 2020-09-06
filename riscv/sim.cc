@@ -36,7 +36,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              const debug_module_config_t &dm_config,
              const char *log_path,
              bool dtb_enabled, const char *dtb_file)
-  : htif_t(args,initrd_start,initrd_end,bootargs),
+  : htif_t(args,initrd_start,initrd_end,bootargs,bus),
     mems(mems),
     plugin_devices(plugin_devices),
 //    procs(std::max(nprocs, size_t(1))), (modified 5)
