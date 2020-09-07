@@ -810,8 +810,8 @@ bool debug_module_t::dmi_write(unsigned address, uint32_t value)
                   hart_state[i].resumeack = false;
                 }
                 if (dmcontrol.hartreset) {
-                  proc->reset();
-                }
+                  // (modified unknown)
+                  proc->reset(sim->get_rstvec());                 }
               }
             }
           }
@@ -819,7 +819,8 @@ bool debug_module_t::dmi_write(unsigned address, uint32_t value)
           if (dmcontrol.ndmreset) {
             for (size_t i = 0; i < sim->nprocs(); i++) {
               processor_t *proc = sim->get_core(i);
-              proc->reset();
+              // (modified unknown)
+              proc->reset(sim->get_rstvec()); 
             }
           }
         }

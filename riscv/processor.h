@@ -154,7 +154,7 @@ struct type_sew_t<64>
 // architectural state of a RISC-V hart
 struct state_t
 {
-  void reset(reg_t max_isa);
+  void reset(reg_t rstvec, reg_t max_isa);
 
   static const int num_triggers = 4;
 
@@ -265,7 +265,7 @@ class processor_t : public abstract_device_t
 public:
   processor_t(const char* isa, const char* priv, const char* varch,
               simif_t* sim, uint32_t id, bool halt_on_reset,
-              FILE *log_file);
+              FILE *log_file,reg_t rstvec);
   ~processor_t();
 
   void set_debug(bool value);
@@ -274,7 +274,7 @@ public:
   void enable_log_commits();
   bool get_log_commits_enabled() const { return log_commits_enabled; }
 #endif
-  void reset();
+  void reset(reg_t rstvec);
   void step(size_t n); // run for n cycles
   void set_csr(int which, reg_t val);
   reg_t get_csr(int which);

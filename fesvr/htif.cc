@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include "dts.h"
 #include <getopt.h>
 
 /* Attempt to determine the execution prefix automatically.  autoconf
@@ -50,6 +51,13 @@ htif_t::htif_t()
   signal(SIGABRT, &handle_signal); // we still want to call static destructors
 }
 
+htif_t::htif_t(int argc, char** argv) : htif_t()
+{
+  parse_arguments(argc, argv);
+
+  register_devices();
+}
+
 htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus) : htif_t()
 {
   parse_arguments(argc, argv);
@@ -64,7 +72,7 @@ htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, co
   load_file();
   normal_load(); 
 
-  set_rom(start_pc,bus);
+  set_rom(bus);
 
   register_devices();
 }
@@ -90,7 +98,9 @@ htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t 
   load_file();
   normal_load();
 
-  register_devices();
+  set_rom(bus);
+
+  register_devices(); // ! this position remain doubt?!
 }
 
 htif_t::~htif_t()
@@ -181,9 +191,11 @@ void htif_t::load_file()
 
 void htif_t::normal_load() 
 {
+  /*
   for(auto &p : plus_plus_load) {
     load_payload(p,)
   }
+  */
 }
 
 void htif_t::stop()
@@ -242,7 +254,7 @@ int htif_t::run()
       command_t cmd(mem, tohost, fromhost_callback);
       device_list.handle_command(cmd);
     } else {
-      idle();
+      idle(); // switch back to target (virtual function use sim_t::idle())
     }
 
     device_list.tick();
@@ -270,9 +282,9 @@ int htif_t::exit_code()
 
 void htif_t::chrome_rom() 
 {
-  rst_vec = DEFAULT_RSTVEC;
-  if(argmap.find("chrome_rom")) {
-    rst_vec = 0x800d0000;
+  rstvec = DEFAULT_RSTVEC;
+  if(argmap.find("chrome_rom")!=argmap.end()) {
+    rstvec = 0x800d0000;
   }
 }
 
@@ -285,27 +297,26 @@ void htif_t::make_flash_addr()
 //(modified 7) 
 void htif_t::mems_config() 
 {
-  htif_mems = htif_helper_make_mems(argmap["mems="]);
+  htif_mems = htif_helper_make_mems(argmap["mems="].c_str());
 }
 
 //(modified 6)
 void htif_t::chip_config() 
 {
-  size_t frequency = INSNS_PER_RTC_TICK, cpu_num = 1;
+  size_t frequency = CPU_HZ, cpu_num = 1;
   htif_isa = "";
   //----parsing the chip_config----
   auto &tmp = argmap["chip_config="];
   #ifdef VF_DEBUG
   printf("make_dtb: argmap[chip_config]=%s\n",tmp);
   #endif
-  for(int i = 0,last = 0; i<=tmp.length(); i++) {
+  for(size_t i = 0,last = 0; i<=tmp.length(); i++) {
     if(i==tmp.length() || 
        (i<tmp.length()-1 && tmp[i] == '_' && tmp[i+1]=='_'))  {
       std::string tmpsub = tmp.substr(last,i-last);
       size_t position = tmpsub.find('_');
       if(position == std::string::npos) {
-        printf("modified 5: at chip_config, pattern not found for 
-                chip_config=%s,subitem=%s",tmp.c_str(),tmpsub.c_str());
+        printf("modified 5: at chip_config, pattern not found for chip_config=%s,subitem=%s",tmp.c_str(),tmpsub.c_str());
         assert(0);
       } 
       std::string pair_first = tmpsub.substr(0,position-1), 
@@ -313,20 +324,20 @@ void htif_t::chip_config()
       #ifdef VF_DEBUG
       printf("  tmpsub=%s\n  pair_first=%s,pair_second=%s\n")
       #endif
-      switch(pair_first) {
-        case "nc" :
-          cpu_num = std::stoull(pair_second);
-          break;
-        case "f" :
-          frequency = std::stdoull(pair_second);
-          break;
-        case "xlen" :
+      
+      if(pair_first == "nc") {
+        cpu_num = std::stoull(pair_second);
+        
+      } else if(pair_first == "f") {
+        frequency = std::stoull(pair_second);
+        
+      } else if(pair_first == "xlen") {
           // do sth
-          break;
-        case "isa" :
-          htif_isa = pair_second;
-          break;
+        
+      } else if(pair_first == "isa") {
+        htif_isa = pair_second;
       }
+
     }
   }
   // init cpu vector
@@ -397,7 +408,7 @@ void htif_t::set_rom(bus_t &bus)
   rom.resize((rom.size() + align - 1) / align * align);
 
   boot_rom.reset(new rom_device_t(rom));
-  bus.add_device(rst_vec, boot_rom.get());
+  bus.add_device(rstvec, boot_rom.get());
 }
 
 
@@ -561,4 +572,112 @@ EMUALTOR VERILOG PLUSARGS\n\
   Consult generated-src*/*.plusArgs for available options\n\
 ", stdout);
   fputs("\n" HTIF_USAGE_OPTIONS, stdout);
+}
+
+
+
+// =======================fesvr helper func ================================
+
+
+bool htif_helper_sort_mem_region(const std::pair<reg_t, mem_t*> &a,
+                       const std::pair<reg_t, mem_t*> &b)
+{
+  if (a.first == b.first)
+    return (a.second->size() < b.second->size());
+  else
+    return (a.first < b.first);
+}
+
+void htif_helper_merge_overlapping_memory_regions(std::vector<std::pair<reg_t, mem_t*>>& mems)
+{
+  // check the user specified memory regions and merge the overlapping or
+  // eliminate the containing parts
+  std::sort(mems.begin(), mems.end(), htif_helper_sort_mem_region);
+  reg_t start_page = 0, end_page = 0;
+  std::vector<std::pair<reg_t, mem_t*>>::reverse_iterator it = mems.rbegin();
+  std::vector<std::pair<reg_t, mem_t*>>::reverse_iterator _it = mems.rbegin();
+  for(; it != mems.rend(); ++it) {
+    reg_t _start_page = it->first/PGSIZE;
+    reg_t _end_page = _start_page + it->second->size()/PGSIZE;
+    if (_start_page >= start_page && _end_page <= end_page) {
+      // contains
+      mems.erase(std::next(it).base());
+    }else if ( _start_page < start_page && _end_page > start_page) {
+      // overlapping
+      _it->first = _start_page;
+      if (_end_page > end_page)
+        end_page = _end_page;
+      mems.erase(std::next(it).base());
+    }else {
+      _it = it;
+      start_page = _start_page;
+      end_page = _end_page;
+      assert(start_page < end_page);
+    }
+  }
+}
+
+static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* arg)
+{
+  // handle legacy mem argument
+  char* p;
+  auto mb = strtoull(arg, &p, 0);
+  if (*p == 0) {
+    reg_t size = reg_t(mb) << 20;
+    if (size != (size_t)size)
+      throw std::runtime_error("Size would overflow size_t");
+    return std::vector<std::pair<reg_t, mem_t*>>(1, std::make_pair(reg_t(DRAM_BASE), new mem_t(size)));
+  }
+
+  // handle base/size tuples
+  std::vector<std::pair<reg_t, mem_t*>> res;
+  while (true) {
+    auto base = strtoull(arg, &p, 0);
+    if (!*p || *p != ':') {
+      printf("modified 7: err parsing, expecting :\n");
+      assert(0);
+    }
+    auto size = strtoull(p + 1, &p, 0);
+
+    // page-align base and size
+    auto base0 = base, size0 = size;
+    size += base0 % PGSIZE;
+    base -= base0 % PGSIZE;
+    if (size % PGSIZE != 0)
+      size += PGSIZE - size % PGSIZE;
+
+    if (base + size < base){
+      printf("modified 7 : base+size<base\n");
+      assert(0);
+    }
+
+    if (size != size0) {
+      fprintf(stderr, "Warning: the memory at  [0x%llX, 0x%llX] has been realigned\n"
+                      "to the %ld KiB page size: [0x%llX, 0x%llX]\n",
+              base0, base0 + size0 - 1, PGSIZE / 1024, base, base + size - 1);
+    }
+
+    res.push_back(std::make_pair(reg_t(base), new mem_t(size)));
+    if (!*p)
+      break;
+    if (*p != ',') {
+      puts("modified 7: expected ,");
+      assert(0);
+    }
+    arg = p + 1;
+  }
+  
+  htif_helper_merge_overlapping_memory_regions(res);
+  return res;
+}
+
+bool htif_helper_bbl0_recognizer(std::string &path) 
+{
+  #ifdef VF_DEBUG
+    printf("bbl0 recognizer %s\n",path.c_str());
+  #endif
+  size_t len = path.size();
+  if(len-4<0) 
+    return 0;
+  return path[len-4]=='b' && path[len-3]=='b' && path[len-2]=='l' && path[len-1] == '0';
 }

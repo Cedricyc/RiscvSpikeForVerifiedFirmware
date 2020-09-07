@@ -23,7 +23,7 @@ class remote_bitbang_t;
 class sim_t : public htif_t, public simif_t
 {
 public:
-  sim_t(const char* isa, const char* priv, const char* varch, size_t _nprocs,
+  sim_t(const char* isa, const char* priv, const char* varch, /*size_t _nprocs,*/
         bool halted, bool real_time_clint,
         reg_t initrd_start, reg_t initrd_end, const char* bootargs,
         reg_t start_pc, std::vector<std::pair<reg_t, mem_t*>> mems,
@@ -53,6 +53,7 @@ public:
   const char* get_dts() { if (dts.empty()) reset(); return dts.c_str(); }
   processor_t* get_core(size_t i) { return procs.at(i); }
   unsigned nprocs() const { return procs.size(); }
+  reg_t get_rstvec() { return rstvec; }
 
   // Callback for processors to let the simulation know they were reset.
   void proc_reset(unsigned id);
@@ -78,8 +79,6 @@ private:
   processor_t* get_core(const std::string& i);
   void step(size_t n); // step through simulation
   static const size_t INTERLEAVE = 5000;
-  static const size_t INSNS_PER_RTC_TICK = 100; // 10 MHz clock for 1 BIPS core
-  static const size_t CPU_HZ = 1000000000; // 1GHz CPU
   size_t current_step;
   size_t current_proc;
   bool debug;

@@ -55,6 +55,8 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
     remote_bitbang(NULL),
     debug_module(this, dm_config)
 {
+  size_t nprocs = procs.size();
+
   signal(SIGINT, &handle_signal);
 
   for (auto& x : mems)
@@ -82,7 +84,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
   for (size_t i = 0; i < nprocs; i++) {
     int hart_id = hartids.empty() ? i : hartids[i];
     procs[i] = new processor_t(isa_str.c_str(), priv, varch, this, hart_id, halted,
-                               log_file.get());
+                               log_file.get(),rstvec);
   }
 
   //make_dtb();

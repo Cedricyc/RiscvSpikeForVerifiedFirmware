@@ -3,20 +3,26 @@
 #ifndef __HTIF_H
 #define __HTIF_H
 
+#include "mmu.h"
 #include "memif.h"
 #include "syscall.h"
 #include "device.h"
+#include "devices.h"
 #include <string.h>
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <sys/types.h>
+#include <memory>
+#include <assert.h>
 
 class htif_t : public chunked_memif_t
 {
  public:
   htif_t();
   htif_t(int argc, char** argv);
-  htif_t(const std::vector<std::string>& args);
+  htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus);
+  htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus);
   virtual ~htif_t();
 
   virtual void start();
@@ -34,14 +40,13 @@ class htif_t : public chunked_memif_t
   virtual void set_rom(bus_t &bus);
 
   // (modified )
-  virtual void load_rom();
 
-  // (modified 5) , use chip_config option to make dtb
-  virtual void make_dtb(reg_t initrd_start, reg_t initrd_end, const char *bootargs);
-
-  // (modified 7) 
   
 
+  virtual processor_t* get_core(size_t i) {
+    puts("err: this is virtual method shouldn't be called");
+    return nullptr;
+  }
 
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
@@ -70,7 +75,11 @@ class htif_t : public chunked_memif_t
   std::vector<std::pair<reg_t, mem_t*>> htif_mems;
   std::string dtb;
   reg_t start_pc;
-  reg_t rst_vec;
+  reg_t rstvec;
+
+  static const size_t INSNS_PER_RTC_TICK = 100; // 10 MHz clock for 1 BIPS core
+  static const size_t CPU_HZ = 1000000000; // 1GHz CPU
+
  private:
   void parse_arguments(int argc, char ** argv);
   void register_devices();
@@ -116,6 +125,7 @@ class htif_t : public chunked_memif_t
   friend class syscall_t;
 };
 
+/*
 static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* arg)
 {
   // handle legacy mem argument
@@ -160,22 +170,30 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
     if (!*p)
       break;
     if (*p != ',') {
-      puts("modified 7: expected ,")
+      puts("modified 7: expected ,");
       assert(0);
     }
     arg = p + 1;
   }
+  
+  merge_overlapping_memory_regions(res);
+  return res;
+}
+*/
 
 // recognize it if path ends with bbl0
-bool htif_helper_bbl0_recognizer(std::string &path) {
-  #ifdef VF_DEBUG
-    printf("bbl0 recognizer %s\n",path.c_str());
-  #endif
-  size_t len = path.size();
-  if(len-4<0) 
-    return 0;
-  return path[len-4]=='b' && path[len-3]=='b' && path[len-2]=='l' && path[len-1] == '0';
-}
+bool htif_helper_bbl0_recognizer(std::string &path);
+
+bool htif_helper_sort_mem_region(const std::pair<reg_t, mem_t*> &a,
+                       const std::pair<reg_t, mem_t*> &b);
+
+static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* arg);
+
+void htif_helper_merge_overlapping_memory_regions(std::vector<std::pair<reg_t, mem_t*>>& mems);
+
+
+
+
 
 /* Alignment guide for emulator.cc options:
   -x, --long-option        Description with max 80 characters --------------->\n\

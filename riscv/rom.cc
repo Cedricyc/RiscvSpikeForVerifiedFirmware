@@ -1,9 +1,7 @@
 #include "devices.h"
 
-rom_device_t::rom_device_t(std::vector<char> data)
-  : data(data)
-{
-}
+rom_device_t::rom_device_t(std::vector<char> data) : data(data) {}
+
 // semantic:
 // input addr,len
 // output data of addr of length of len to output array: bytes
