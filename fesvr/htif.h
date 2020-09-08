@@ -191,7 +191,9 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
 
 void htif_helper_merge_overlapping_memory_regions(std::vector<std::pair<reg_t, mem_t*>>& mems);
 
+void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst);
 
+bool htif_helper_underline_separate(std::string src, std::string &dst1, std::string &dst2);
 
 
 

@@ -186,7 +186,7 @@ void htif_t::load_program()
 
 void htif_t::load_file() 
 {
-
+  
 }
 
 void htif_t::normal_load() 
@@ -542,10 +542,12 @@ void htif_t::parse_arguments(int argc, char ** argv)
 done_processing:
   while (optind < argc)
     targs.push_back(argv[optind++]);
+/*
   if (!targs.size()) {
     usage(argv[0]);
     throw std::invalid_argument("No binary specified (Did you forget it? Did you forget '+permissive-off' if running with +permissive?)");
   }
+  */
 }
 
 void htif_t::register_devices()
@@ -680,4 +682,66 @@ bool htif_helper_bbl0_recognizer(std::string &path)
   if(len-4<0) 
     return 0;
   return path[len-4]=='b' && path[len-3]=='b' && path[len-2]=='l' && path[len-1] == '0';
+}
+
+
+void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst) 
+{
+  /*
+      input "abc,12_3,ak2f"
+      output {"abc","12_3","ak2f"}
+  */
+  #ifdef VF_DEBUG 
+    printf("comma_separate input src=%s\n",src.c_str());
+  #endif 
+  dst.clear();
+  for(size_t pos = 0, nxpos = 0; pos<src.size() ; pos = nxpos + 1) 
+  {
+    nxpos = src.find(',');
+    if(nxpos == std::string::npos)
+      nxpos = src.size();
+    dst.push_back(src.substr(pos,nxpos-pos));
+  }
+
+  #ifdef VF_DEBUG
+  puts("comma separate output dst=\n");
+  for(auto &s : dst) {
+    printf("  %s,\n",s.c_str());
+  }
+  #endif
+  
+}
+
+bool htif_helper_underline_separate(std::string src, std::string &dst1, std::string &dst2) 
+{
+  /*
+      input "abc__efg_123__456"
+      output "abc","efg_123__456"
+  */
+
+  #ifdef VF_DEBUG
+    printf("underline_separte src=%s\n",src.c_str());
+  #endif 
+
+  for(size_t pos = 0, nxpos = 0; pos<src.size(); pos = nxpos + 1) 
+  {
+    nxpos = src.find('_');
+    if(nxpos == std::string::npos)
+      nxpos = src.size();
+    if(nxpos>=src.size()-1) {
+      puts("underline_separate no find __ indicator");
+      return 1; 
+    }
+    if(src[nxpos] == '_' && src[nxpos+1] == '_') 
+    {
+      dst1 = src.substr(0,nxpos);
+      dst2 = src.substr(nxpos + 2,src.size() - (nxpos+2) );
+      break;
+    }
+  }
+
+  #ifdef VF_DEBUG
+    printf("underline_separte result:\"%s\",\"%s\""\n,dst1.c_str(),dst2.c_str());
+  #endif
+  return 0;
 }

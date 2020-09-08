@@ -77,7 +77,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
       exit(1);
   }
 
-  // (modified 6)
+  // (modified 6)     !!!! this need in fesvr!!! 
   std::string isa_str = isa;
   if(htif_isa != "") 
     isa_str = htif_isa;
