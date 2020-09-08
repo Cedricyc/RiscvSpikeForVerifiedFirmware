@@ -70,7 +70,6 @@ htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, co
   chrome_rom();
 
   load_file();
-  normal_load(); 
 
   set_rom(bus);
 
@@ -96,7 +95,6 @@ htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t 
   chrome_rom();
 
   load_file();
-  normal_load();
 
   set_rom(bus);
 
@@ -189,7 +187,7 @@ void htif_t::load_file()
   #ifdef VF_DEBUG
   puts("htif_t::load_file:")
   #endif
-  std::string files_str = argmap["load_file="];
+  std::string files_str = argmap["load_files="];
   std::vector<std::string> files;
   htif_helper_comma_separate(files_str,files);
   #define PAIR_STR_T std::pair<std::string,std::string>
@@ -557,6 +555,9 @@ void htif_t::parse_arguments(int argc, char ** argv)
 done_processing:
   while (optind < argc)
     targs.push_back(argv[optind++]);
+  for(auto &s : plus_plus_load) {
+    targs.push_back(s);
+  }
 /*
   if (!targs.size()) {
     usage(argv[0]);
@@ -776,7 +777,7 @@ std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size)
     abort();
   size_t size = s.st_size;
 
-  std::unique_ptr<char> buf = (char*)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  std::unique_ptr<char> buf((char*)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0));
   assert(buf.get() != MAP_FAILED);
   close(fd);
   #ifdef VF_DEBUG
