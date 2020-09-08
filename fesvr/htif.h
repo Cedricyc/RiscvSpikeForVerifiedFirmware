@@ -15,6 +15,10 @@
 #include <sys/types.h>
 #include <memory>
 #include <assert.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 
 class htif_t : public chunked_memif_t
 {
@@ -97,6 +101,7 @@ class htif_t : public chunked_memif_t
 
   void normal_load();
   void load_file();
+  
 
   memif_t mem;
   reg_t entry;
@@ -195,6 +200,7 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst);
 
 bool htif_helper_underline_separate(std::string src, std::string &dst1, std::string &dst2);
 
+std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size);
 
 
 /* Alignment guide for emulator.cc options:

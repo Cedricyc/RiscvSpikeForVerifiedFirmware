@@ -186,17 +186,32 @@ void htif_t::load_program()
 
 void htif_t::load_file() 
 {
-  
+  #ifdef VF_DEBUG
+  puts("htif_t::load_file:")
+  #endif
+  std::string files_str = argmap["load_file="];
+  std::vector<std::string> files;
+  htif_helper_comma_separate(files_str,files);
+  #define PAIR_STR_T std::pair<std::string,std::string>
+  for(auto &s : files) 
+  {
+    PAIR_STR_T dst;
+    bool ret = htif_helper_underline_separate(s,dst.first,dst.second);
+    assert(ret == 0); // ret == 1 <=> load_file err 
+    size_t fsize = 0;
+    addr_t addr = std::stoull(dst.second,0,16); 
+    std::unique_ptr<char> bin = htif_helper_get_file(dst.first,fsize);
+    assert(bin!=nullptr);
+
+    
+    #ifdef VF_DEBUG
+    printf("    s=%s\n    mem.write(addr=%zu,fsize=%zu,bin.get()=%p)\n",
+          s,addr,fsize,bin.get());
+    #endif
+    mem.write(addr,fsize,bin.get());
+  }
 }
 
-void htif_t::normal_load() 
-{
-  /*
-  for(auto &p : plus_plus_load) {
-    load_payload(p,)
-  }
-  */
-}
 
 void htif_t::stop()
 {
@@ -745,3 +760,29 @@ bool htif_helper_underline_separate(std::string src, std::string &dst1, std::str
   #endif
   return 0;
 }
+
+
+std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size) 
+{
+  ret_size = 0;
+  #ifdef VF_DEBUG
+  printf("    addr=%ull\n    now openfile fn=%s\n", addr,fn.c_str());
+  #endif
+
+  int fd = open(fn.c_str(), O_RDONLY);
+  struct stat s;
+  assert(fd != -1);
+  if (fstat(fd, &s) < 0)
+    abort();
+  size_t size = s.st_size;
+
+  std::unique_ptr<char> buf = (char*)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  assert(buf.get() != MAP_FAILED);
+  close(fd);
+  #ifdef VF_DEBUG
+  printf("    openfileend, filesize=%zu\n",size);
+  #endif 
+  ret_size = size;
+  return buf;
+}
+
