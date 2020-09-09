@@ -137,11 +137,18 @@ private:
   size_t chunk_align() { return 8; }
   size_t chunk_max_size() { return 8; }
 
+protected:
+  void init_procs(std::vector<int> const &hartids, const char* isa, 
+                          const char* priv, const char* varch, bool halted);
+
 public:
   // Initialize this after procs, because in debug_module_t::reset() we
   // enumerate processors, which segfaults if procs hasn't been initialized
   // yet.
   debug_module_t debug_module;
+
+
+
 };
 
 extern volatile bool ctrlc_pressed;

@@ -18,7 +18,15 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <iostream>
 
+
+#define VF_DEBUG
+
+#define PRINT_STD_VECTOR(x) \
+    for(auto &p : x) {std::cout << p << " ";}
+#define PRINT_MEM_T_PTR(x) \
+    printf("(%zu,%s) ",x->size(),x->contents())
 
 class htif_t : public chunked_memif_t
 {
@@ -26,7 +34,7 @@ class htif_t : public chunked_memif_t
   htif_t();
   htif_t(int argc, char** argv);
   htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus);
-  htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus);
+  htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus,std::function<void()> procs_init);
   virtual ~htif_t();
 
   virtual void start();
@@ -45,7 +53,6 @@ class htif_t : public chunked_memif_t
 
   // (modified )
 
-  
 
   virtual processor_t* get_core(size_t i) {
     puts("err: this is virtual method shouldn't be called");

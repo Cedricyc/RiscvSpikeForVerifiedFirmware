@@ -35,8 +35,37 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              std::vector<int> const hartids,
              const debug_module_config_t &dm_config,
              const char *log_path,
-             bool dtb_enabled, const char *dtb_file)
-  : htif_t(args,initrd_start,initrd_end,bootargs,bus),
+             bool dtb_enabled, const char *dtb_file) :
+    htif_t(args,initrd_start,initrd_end,bootargs,bus,
+      [this,hartids,isa,priv,varch,halted]() {
+        #ifdef VF_DEBUG 
+        printf("init_procs start---\n    hartids=");
+        PRINT_STD_VECTOR(hartids);
+        printf("\n    isa=%s,priv=%s,varch=%s,halted=%d\n",isa,priv,varch,halted);
+        #endif
+        if (! (hartids.empty() || hartids.size() == procs.size())) {
+            std::cerr << "Number of specified hartids ("
+                      << hartids.size()
+                      << ") doesn't match number of processors ("
+                      << procs.size() << ").\n";
+            exit(1);
+        }
+
+        // (modified 6)     !!!! this need in fesvr!!! 
+        std::string isa_str = isa;
+        if(htif_isa != "") 
+          isa_str = htif_isa;
+        for (size_t i = 0; i < procs.size(); i++) {
+          int hart_id = hartids.empty() ? i : hartids[i];
+          procs[i] = new processor_t(isa_str.c_str(), priv, varch, 
+                                    this, hart_id, halted,
+                                    log_file.get(),rstvec);
+        }        
+        #ifdef VF_DEBUG
+        puts("init proc end---");
+        #endif
+      }
+    ),
     mems(mems),
     plugin_devices(plugin_devices),
 //    procs(std::max(nprocs, size_t(1))), (modified 5)
@@ -69,6 +98,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
 
   debug_mmu = new mmu_t(this, NULL);
 
+  /*
   if (! (hartids.empty() || hartids.size() == nprocs)) {
       std::cerr << "Number of specified hartids ("
                 << hartids.size()
@@ -81,12 +111,12 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
   std::string isa_str = isa;
   if(htif_isa != "") 
     isa_str = htif_isa;
-  for (size_t i = 0; i < nprocs; i++) {
+  for (size_t i = 0; i < procs.size(); i++) {
     int hart_id = hartids.empty() ? i : hartids[i];
     procs[i] = new processor_t(isa_str.c_str(), priv, varch, this, hart_id, halted,
                                log_file.get(),rstvec);
   }
-
+  */
   //make_dtb();
 
   clint.reset(new clint_t(procs, CPU_HZ / INSNS_PER_RTC_TICK, real_time_clint));
@@ -197,6 +227,7 @@ void sim_t::configure_log(bool enable_log, bool enable_commitlog)
   }
 #endif
 }
+
 
 void sim_t::set_procs_debug(bool value)
 {
