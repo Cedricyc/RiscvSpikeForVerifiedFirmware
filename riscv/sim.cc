@@ -26,6 +26,34 @@ static void handle_signal(int sig)
   signal(sig, &handle_signal);
 }
 
+void sim_t::procs_init(std::vector<int> const &hartids,const char* isa,const char* priv,const char* varch,bool halted) 
+{
+  #ifdef VF_DEBUG 
+  printf("init_procs start---\n    hartids=");
+  PRINT_STD_VECTOR(hartids);
+  printf("\n    isa=%s,priv=%s,varch=%s,halted=%d\n",isa,priv,varch,halted);
+  #endif
+  if (! (hartids.empty() || hartids.size() == procs.size())) {
+      std::cerr << "Number of specified hartids ("
+                << hartids.size()
+                << ") doesn't match number of processors ("
+                << procs.size() << ").\n";
+      exit(1);
+  }
+  puts("detecter");
+  // (modified 6)     !!!! this need in fesvr!!! 
+
+  for (size_t i = 0; i < procs.size(); i++) {
+    int hart_id = hartids.empty() ? i : hartids[i];
+    procs[i] = new processor_t(isa, priv, varch, 
+                              this, hart_id, halted,
+                              log_file.get(),rstvec);
+  }        
+  #ifdef VF_DEBUG
+  puts("init proc end---");
+  #endif
+}
+
 sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              /*size_t nprocs,*/ bool halted, bool real_time_clint,
              reg_t initrd_start, reg_t initrd_end, const char* bootargs,
@@ -36,36 +64,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              const debug_module_config_t &dm_config,
              const char *log_path,
              bool dtb_enabled, const char *dtb_file) :
-    htif_t(args,initrd_start,initrd_end,bootargs,bus,
-      [this,hartids,isa,priv,varch,halted]() {
-        #ifdef VF_DEBUG 
-        printf("init_procs start---\n    hartids=");
-        PRINT_STD_VECTOR(hartids);
-        printf("\n    isa=%s,priv=%s,varch=%s,halted=%d\n",isa,priv,varch,halted);
-        #endif
-        if (! (hartids.empty() || hartids.size() == procs.size())) {
-            std::cerr << "Number of specified hartids ("
-                      << hartids.size()
-                      << ") doesn't match number of processors ("
-                      << procs.size() << ").\n";
-            exit(1);
-        }
-
-        // (modified 6)     !!!! this need in fesvr!!! 
-        std::string isa_str = isa;
-        if(htif_isa != "") 
-          isa_str = htif_isa;
-        for (size_t i = 0; i < procs.size(); i++) {
-          int hart_id = hartids.empty() ? i : hartids[i];
-          procs[i] = new processor_t(isa_str.c_str(), priv, varch, 
-                                    this, hart_id, halted,
-                                    log_file.get(),rstvec);
-        }        
-        #ifdef VF_DEBUG
-        puts("init proc end---");
-        #endif
-      }
-    ),
+    htif_t(args),
     mems(mems),
     plugin_devices(plugin_devices),
 //    procs(std::max(nprocs, size_t(1))), (modified 5)
@@ -119,14 +118,18 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
   */
   //make_dtb();
 
-  clint.reset(new clint_t(procs, CPU_HZ / INSNS_PER_RTC_TICK, real_time_clint));
-  reg_t clint_base;
-  if (fdt_parse_clint((void *)dtb.c_str(), &clint_base, "riscv,clint0")) {
-    bus.add_device(CLINT_BASE, clint.get());
-  } else {
-    bus.add_device(clint_base, clint.get());
-  }
+  procs_init(hartids,(htif_isa == "")? isa : htif_isa.c_str(),priv,varch,halted);
+  make_dtb();
 
+  clint_init(real_time_clint);
+
+  pmp_granularity_init();
+
+}
+
+void sim_t::pmp_granularity_init() 
+{  
+  size_t nprocs = procs.size();
   for (size_t i = 0; i < nprocs; i++) {
     reg_t pmp_num = 0, pmp_granularity = 0;
     fdt_parse_pmp_num((void *)dtb.c_str(), &pmp_num, "riscv");
@@ -135,8 +138,49 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
     procs[i]->set_pmp_num(pmp_num);
     procs[i]->set_pmp_granularity(pmp_granularity);
   }
+  
 }
 
+void sim_t::clint_init(bool real_time_clint) 
+{
+  clint.reset(new clint_t(procs, CPU_HZ / INSNS_PER_RTC_TICK, real_time_clint));
+  reg_t clint_base;
+  if (fdt_parse_clint((void *)dtb.c_str(), &clint_base, "riscv,clint0")) {
+    bus.add_device(CLINT_BASE, clint.get());
+  } else {
+    bus.add_device(clint_base, clint.get());
+  }
+
+}
+
+
+void sim_t::make_dtb()
+{ 
+  //----dts generated from chip_config
+  #ifdef VF_DEBUG
+  printf("make_dtb start---\n    INSNS_P_R_T=%zu,freq=%zu,initrd_start=%zu,initrd_end=%zu\n    bootargs=%s\n    procs.pc=",
+  INSNS_PER_RTC_TICK,freq,initrd_start,initrd_end,bootargs);
+  for(size_t i = 0;i < procs.size(); i++) 
+    printf("%zu ",procs[i]->get_state()->pc);
+  printf("\n    htif_mems=");
+  for(auto &p : htif_mems) 
+    printf("reg_t : %zu",p.first),PRINT_MEM_T_PTR(p.second); 
+  puts("");
+  #endif
+
+  std::string dts = make_dts(INSNS_PER_RTC_TICK, freq/*CPU_HZ*/, initrd_start, initrd_end, bootargs, procs, htif_mems);
+  //----building through dts
+
+  #ifdef VF_DEBUG
+  printf("    dts=%s,size=%zu\n",dts.c_str(),dts.size());
+  #endif
+
+  dtb = dts_compile(dts);
+
+  #ifdef VF_DEBUG
+  printf("    dtb=%s,size=%zu\nmake_dtb end---\n",dtb.c_str(),dtb.size());
+  #endif
+}
 sim_t::~sim_t()
 {
   for (size_t i = 0; i < procs.size(); i++)
@@ -254,6 +298,85 @@ bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
   return bus.store(addr, len, bytes);
 }
 
+//(modified 4)
+// outside input of this func: start_pc,dtb_file
+void sim_t::set_rom()
+{
+  #ifdef VF_DEBUG
+  puts("make_rom start---");
+  #endif 
+  const int reset_vec_size = 8;
+  
+  //start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc; // as parameter in htif
+
+  uint32_t reset_vec[reset_vec_size] = {
+    0x297,                                      // auipc  t0,0x0
+    0x28593 + (reset_vec_size * 4 << 20),       // addi   a1, t0, &dtb
+    0xf1402573,                                 // csrr   a0, mhartid
+    get_core(0)->get_xlen() == 32 ?
+      0x0182a283u :                             // lw     t0,24(t0)
+      0x0182b283u,                              // ld     t0,24(t0)
+    0x28067,                                    // jr     t0
+    0,
+    (uint32_t) (start_pc & 0xffffffff),
+    (uint32_t) (start_pc >> 32)
+  };
+  for(int i = 0; i < reset_vec_size; i++)
+    reset_vec[i] = to_le(reset_vec[i]);
+
+  std::vector<char> rom((char*)reset_vec, (char*)reset_vec + sizeof(reset_vec));
+
+  #ifdef VF_DEBUG
+  #define PRINT_ROM(x) \
+  puts(x);\
+  printf("    "); \
+  for(size_t i = 0; i < rom.size(); i++ )  \
+    printf("%d ",rom[i]);
+  
+
+  PRINT_ROM("add reset_vec to rom:")
+  #endif
+
+  
+  /*
+  std::string dtb;
+  if (!dtb_file.empty()) {
+    std::ifstream fin(dtb_file.c_str(), std::ios::binary);
+    if (!fin.good()) {
+      std::cerr << "can't find dtb file: " << dtb_file << std::endl;
+      exit(-1);
+    }
+
+    std::stringstream strstream;
+    strstream << fin.rdbuf();
+
+    dtb = strstream.str();
+  } else {
+    dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
+    dtb = dts_compile(dts);
+  }*/
+
+  rom.insert(rom.end(), dtb.begin(), dtb.end());
+
+  #ifdef VF_DEBUG
+  PRINT_ROM("add dtb to rom:")
+  #endif
+
+  const int align = 0x1000;
+  rom.resize((rom.size() + align - 1) / align * align);
+
+  #ifdef VF_DEBUG
+  PRINT_ROM("add align to rom:")
+  #endif
+
+  boot_rom.reset(new rom_device_t(rom));
+  bus.add_device(rstvec, boot_rom.get());
+  #ifdef VF_DEBUG
+  printf("commit result\n    rstvec=%zu,boot_rom.get()=%p,rom.size()=%zu\nmake_rom end---",rstvec,boot_rom.get(),rom.size());
+  
+  #endif
+}
+
 // input dtb_file , output dtb string. 
 // if dtb_file is empty, use current info to build one dts, then use dts to build dtb
 /*
@@ -338,10 +461,8 @@ char* sim_t::addr_to_mem(reg_t addr) {
 
 void sim_t::reset()
 {
-/*
   if (dtb_enabled)
     set_rom();
-    */
 }
 
 void sim_t::idle()
@@ -366,5 +487,7 @@ void sim_t::write_chunk(addr_t taddr, size_t len, const void* src)
 
 void sim_t::proc_reset(unsigned id)
 {
+  puts("detecter5.1");
   debug_module.proc_reset(id);
+  puts("detecter5.2");
 }

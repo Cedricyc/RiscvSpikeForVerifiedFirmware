@@ -44,6 +44,7 @@ processor_t::processor_t(const char* isa, const char* priv, const char* varch,
 
   set_pmp_granularity(1 << PMP_SHIFT);
   set_pmp_num(state.max_pmp);
+  puts("detecter2");
   reset(rstvec);
 }
 
@@ -452,6 +453,7 @@ void processor_t::enable_log_commits()
 
 void processor_t::reset(reg_t rstvec)
 {
+  puts("detecter3");
   state.reset(rstvec,max_isa);
 
   state.mideleg = supports_extension('H') ? MIDELEG_FORCED_MASK : 0;
@@ -471,8 +473,14 @@ void processor_t::reset(reg_t rstvec)
   if (ext)
     ext->reset(); // reset the extension
 
-  if (sim)
+  puts("detecter4");
+  if (sim) {
+    puts("detecter4.1");
+    printf("detecter simif sim = %p\n");
     sim->proc_reset(id);
+    puts("detecter4.2");
+  }
+  puts("detecter6");
 }
 
 // Count number of contiguous 0 bits starting from the LSB.

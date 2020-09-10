@@ -58,25 +58,7 @@ htif_t::htif_t(int argc, char** argv) : htif_t()
   register_devices();
 }
 
-htif_t::htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus) : htif_t()
-{
-  parse_arguments(argc, argv);
-
-  //(modified 6)
-  chip_config();
-  mems_config();
-  make_dtb(initrd_start_, initrd_end_, bootargs);
-  make_flash_addr();
-  chrome_rom();
-
-  load_file();
-
-  set_rom(bus);
-
-  register_devices();
-}
-
-htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs,bus_t &bus,std::function<void()> procs_init) : htif_t()
+htif_t::htif_t(const std::vector<std::string>& args) : htif_t()
 {
   int argc = args.size() + 1;
   char * argv[argc];
@@ -88,18 +70,14 @@ htif_t::htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t 
   parse_arguments(argc, argv);
 
   //(modified 6)
+  chrome_rom();
   chip_config();
 
-  procs_init();
-
   mems_config();
-  make_dtb(initrd_start_, initrd_end_, bootargs);
   make_flash_addr();
-  chrome_rom();
 
   load_file();
 
-  set_rom(bus);
 
   register_devices(); // ! this position remain doubt?!
 }
@@ -319,7 +297,31 @@ void htif_t::make_flash_addr()
 //(modified 7) 
 void htif_t::mems_config() 
 {
+  #ifdef VF_DEBUG
+  puts("mems_config start---");
+  #endif
   htif_mems = htif_helper_make_mems(argmap["mems="].c_str());
+
+  #ifdef VF_DEBUG
+  for(auto &x : htif_mems) {
+    printf("        bus.adddevice %zu,",x.first);
+    PRINT_MEM_T_PTR(x.second);
+    puts("");
+  }
+  puts("    preview ends");
+  #endif 
+  
+
+  for(auto& x : htif_mems)  {
+    #ifdef VF_DEBUG
+    printf("        bus.adddevice %zu,",x.first);
+    PRINT_MEM_T_PTR(x.second);
+    puts("");
+    #endif
+    bus.add_device(x.first,x.second);
+  }
+  puts("mems_config end---");
+
 }
 
 //(modified 6)
@@ -328,46 +330,50 @@ void htif_t::chip_config()
   size_t frequency = CPU_HZ, cpu_num = 1;
   htif_isa = "";
   //----parsing the chip_config----
-  auto &tmp = argmap["chip_config="];
+  auto tmp = argmap["chip_config="];
   #ifdef VF_DEBUG
   printf("chip config start---\n    argmap[chip_config]=%s\n",tmp.c_str());
   #endif
-  for(size_t i = 0,last = 0; i<=tmp.length(); i++) {
-    if(i==tmp.length() || 
-       (i<tmp.length()-1 && tmp[i] == '_' && tmp[i+1]=='_'))  {
-      std::string tmpsub = tmp.substr(last,i-last);
-      size_t position = tmpsub.find('_');
-      if(position == std::string::npos) {
-        printf("    err: at chip_config, pattern not found for chip_config=%s,subitem=%s\n",tmp.c_str(),tmpsub.c_str());
-        assert(0);
-      } 
-      std::string pair_first = tmpsub.substr(0,position-1), 
-                  pair_second = tmpsub.substr(position+1,tmpsub.length()-position-1);
-      #ifdef VF_DEBUG
-      printf("        tmpsub=%s\n  pair_first=%s,pair_second=%s\n",tmpsub.c_str(),pair_first.c_str(),pair_second.c_str());
-      #endif
-      
-      if(pair_first == "nc") {
-        cpu_num = std::stoull(pair_second);
-        #ifdef VF_DEBUG
-        printf("    cpu_num <- %zu\n",cpu_num);
-        #endif
-      } else if(pair_first == "f") {
-        frequency = std::stoull(pair_second);
-        #ifdef VF_DEBUG
-        printf("    freq <- %zu\n",frequency);
-        #endif
-      } else if(pair_first == "xlen") {
-          // do sth
-        
-      } else if(pair_first == "isa") {
-        htif_isa = pair_second;
-        #ifdef VF_DEBUG
-        printf("    htif_isa <- %s\n",htif_isa.c_str());
-        #endif
-      }
+  size_t i = 0;
+  for(bool flag = 0; !flag ; ) {
+    std::string ret1, ret2;
+    flag = htif_helper_underline_separate(tmp.substr(i,tmp.size()-i), ret1, ret2);
+    i += ret1.size() + 2;
+    #ifdef VF_DEBUG
+    printf("        ret1=%s,ret2=%s\n        flag=%d,i=%zu\n",ret1.c_str(),ret2.c_str(),flag,i);
+    #endif
 
+    size_t position = ret1.find('_');
+    if(position == std::string::npos) {
+      printf("    err: at chip_config, pattern not found for chip_config=%s,subitem=%s\n",tmp.c_str(),ret1.c_str());
+      assert(0);
+    } 
+    std::string pair_first = ret1.substr(0,position), 
+                pair_second = ret1.substr(position+1,ret1.length()-position-1);
+    #ifdef VF_DEBUG
+    printf("        tmpsub=%s\n  pair_first=%s,pair_second=%s\n",ret1.c_str(),pair_first.c_str(),pair_second.c_str());
+    #endif
+    
+    if(pair_first == "nc") {
+      cpu_num = std::stoull(pair_second);
+      #ifdef VF_DEBUG
+      printf("    cpu_num <- %zu\n",cpu_num);
+      #endif
+    } else if(pair_first == "f") {
+      frequency = std::stoull(pair_second);
+      #ifdef VF_DEBUG
+      printf("    freq <- %zu\n",frequency);
+      #endif
+    } else if(pair_first == "xlen") {
+        // do sth
+      
+    } else if(pair_first == "isa") {
+      htif_isa = pair_second;
+      #ifdef VF_DEBUG
+      printf("    htif_isa <- %s\n",htif_isa.c_str());
+      #endif
     }
+  
   }
   // init cpu vector
   procs.resize(cpu_num);
@@ -382,108 +388,7 @@ void htif_t::chip_config()
 // using argmap[chip_config=] to make dtb through dts compiling way
 // dtb_file way of getting dtb is abandon here.
 
-void htif_t::make_dtb(reg_t initrd_start, reg_t initrd_end, const char *bootargs)
-{ 
-  //----dts generated from chip_config
-  #ifdef VF_DEBUG
-  printf("make_dtb start---\n    INSNS_P_R_T=%zu,freq=%zu,initrd_start=%zu,initrd_end=%zu\n    bootargs=%s\n    procs.pc=",
-  INSNS_PER_RTC_TICK,freq,initrd_start,initrd_end,bootargs);
-  for(size_t i = 0;i < procs.size(); i++) 
-    printf("%zu ",procs[i]->get_state()->pc);
-  printf("\n    htif_mems=");
-  for(auto &p : htif_mems) 
-    printf("reg_t : %zu",p.first),PRINT_MEM_T_PTR(p.second); 
-  puts("");
-  #endif
-  std::string dts = make_dts(INSNS_PER_RTC_TICK, freq/*CPU_HZ*/, initrd_start, initrd_end, bootargs, procs, htif_mems);
-  //----building through dts
-  #ifdef VF_DEBUG
-  printf("    dts=%s,size=%zu\n",dts.c_str(),dts.size());
-  #endif
-  dtb = dts_compile(dts);
-  #ifdef VF_DEBUG
-  printf("    dtb=%s,size=%zu\nmake_dtb end---\n",dtb.c_str(),dtb.size());
-  #endif
-}
 
-//(modified 4)
-// outside input of this func: start_pc,dtb_file
-void htif_t::set_rom(bus_t &bus)
-{
-  #ifdef VF_DEBUG
-  puts("make_rom start---");
-  #endif 
-  const int reset_vec_size = 8;
-  
-  //start_pc = start_pc == reg_t(-1) ? get_entry_point() : start_pc; // as parameter in htif
-
-  uint32_t reset_vec[reset_vec_size] = {
-    0x297,                                      // auipc  t0,0x0
-    0x28593 + (reset_vec_size * 4 << 20),       // addi   a1, t0, &dtb
-    0xf1402573,                                 // csrr   a0, mhartid
-    get_core(0)->get_xlen() == 32 ?
-      0x0182a283u :                             // lw     t0,24(t0)
-      0x0182b283u,                              // ld     t0,24(t0)
-    0x28067,                                    // jr     t0
-    0,
-    (uint32_t) (start_pc & 0xffffffff),
-    (uint32_t) (start_pc >> 32)
-  };
-  for(int i = 0; i < reset_vec_size; i++)
-    reset_vec[i] = to_le(reset_vec[i]);
-
-  std::vector<char> rom((char*)reset_vec, (char*)reset_vec + sizeof(reset_vec));
-
-  #ifdef VF_DEBUG
-  #define PRINT_ROM(x) \
-  puts(x);\
-  printf("    "); \
-  for(size_t i = 0; i < rom.size(); i++ )  \
-    printf("%d ",rom[i]);
-  
-
-  PRINT_ROM("add reset_vec to rom:")
-  #endif
-
-  
-  /*
-  std::string dtb;
-  if (!dtb_file.empty()) {
-    std::ifstream fin(dtb_file.c_str(), std::ios::binary);
-    if (!fin.good()) {
-      std::cerr << "can't find dtb file: " << dtb_file << std::endl;
-      exit(-1);
-    }
-
-    std::stringstream strstream;
-    strstream << fin.rdbuf();
-
-    dtb = strstream.str();
-  } else {
-    dts = make_dts(INSNS_PER_RTC_TICK, CPU_HZ, initrd_start, initrd_end, bootargs, procs, mems);
-    dtb = dts_compile(dts);
-  }*/
-
-  rom.insert(rom.end(), dtb.begin(), dtb.end());
-
-  #ifdef VF_DEBUG
-  PRINT_ROM("add dtb to rom:")
-  #endif
-
-  const int align = 0x1000;
-  rom.resize((rom.size() + align - 1) / align * align);
-
-  #ifdef VF_DEBUG
-  PRINT_ROM("add align to rom:")
-  #endif
-
-  boot_rom.reset(new rom_device_t(rom));
-  bus.add_device(rstvec, boot_rom.get());
-  #ifdef VF_DEBUG
-  printf("commit result\n    rstvec=%zu,boot_rom.get()=%p,rom.size()=%zu\nmake_rom end---",rstvec,boot_rom.get(),rom.size());
-  
-  #endif
-}
 
 
 
@@ -699,8 +604,14 @@ void htif_helper_merge_overlapping_memory_regions(std::vector<std::pair<reg_t, m
 static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* arg)
 {
   // handle legacy mem argument
+
   char* p;
   auto mb = strtoull(arg, &p, 0);
+
+  #ifdef VF_DEBUG
+  printf("helper_make_mems\n        mb=%x,p=%s\n",mb,p);
+  #endif 
+
   if (*p == 0) {
     reg_t size = reg_t(mb) << 20;
     if (size != (size_t)size)
@@ -712,18 +623,36 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
   std::vector<std::pair<reg_t, mem_t*>> res;
   while (true) {
     auto base = strtoull(arg, &p, 0);
+
+    #ifdef VF_DEBUG 
+    printf("       observation 0: arg=%s,p=%s\n",arg,p);
+    #endif
+
     if (!*p || *p != ':') {
       printf("modified 7: err parsing, expecting :\n");
       assert(0);
     }
     auto size = strtoull(p + 1, &p, 0);
 
+    #ifdef VF_DEBUG 
+    printf("       observation 1: base=%x,size=%zu\n",base,size);
+    #endif
+
     // page-align base and size
     auto base0 = base, size0 = size;
     size += base0 % PGSIZE;
     base -= base0 % PGSIZE;
+
+    #ifdef VF_DEBUG 
+    printf("       observation 2: base=%x,size=%zu\n",base,size);
+    #endif
+
     if (size % PGSIZE != 0)
       size += PGSIZE - size % PGSIZE;
+
+    #ifdef VF_DEBUG 
+    printf("       observation 3: base=%x,size=%zu\n",base,size);
+    #endif
 
     if (base + size < base){
       printf("modified 7 : base+size<base\n");
@@ -736,6 +665,9 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
               base0, base0 + size0 - 1, PGSIZE / 1024, base, base + size - 1);
     }
 
+    #ifdef VF_DEBUG 
+    printf("        res.push_back(%x,(mem_t(%zu)))\n",base,size);
+    #endif
     res.push_back(std::make_pair(reg_t(base), new mem_t(size)));
     if (!*p)
       break;
@@ -747,6 +679,14 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
   }
   
   htif_helper_merge_overlapping_memory_regions(res);
+  #ifdef VF_DEBUG
+  for(auto &x : res) {
+    printf("        bus.adddevice %zu,",x.first);
+    PRINT_MEM_T_PTR(x.second);
+    puts("");
+  }
+  puts("helper preview ends");
+  #endif   
   return res;
 }
 
@@ -792,8 +732,11 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst)
 bool htif_helper_underline_separate(std::string src, std::string &dst1, std::string &dst2) 
 {
   /*
-      input "abc__efg_123__456"
-      output "abc","efg_123__456"
+      Parsing string with signal of __
+      input "ab_c__efg_123__456"
+      output "ab_c","efg_123__456"
+      input "ab_cdefg"
+      output "ab_cdefg",""
   */
 
   #ifdef VF_DEBUG
@@ -802,11 +745,13 @@ bool htif_helper_underline_separate(std::string src, std::string &dst1, std::str
 
   for(size_t pos = 0, nxpos = 0; pos<src.size(); pos = nxpos + 1) 
   {
-    nxpos = src.find('_');
+    nxpos = src.find('_',pos);
     if(nxpos == std::string::npos)
       nxpos = src.size();
     if(nxpos>=src.size()-1) {
       puts("underline_separate no find __ indicator");
+      dst1 = src;
+      dst2 = "";
       return 1; 
     }
     if(src[nxpos] == '_' && src[nxpos+1] == '_') 

@@ -7,7 +7,9 @@ void bus_t::add_device(reg_t addr, abstract_device_t* dev)
   // container to sort the keys and provide ordered
   // iteration over this sort, which it does. (python's
   // SortedDict is a good analogy)
+  printf("add_device start---\n    addr=%zu,dev=%p\n",addr,dev);
   devices[addr] = dev;
+  printf("add_device end---\n");
 }
 
 bool bus_t::load(reg_t addr, size_t len, uint8_t* bytes)

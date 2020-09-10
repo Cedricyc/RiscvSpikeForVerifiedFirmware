@@ -33,8 +33,7 @@ class htif_t : public chunked_memif_t
  public:
   htif_t();
   htif_t(int argc, char** argv);
-  htif_t(int argc, char** argv, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus);
-  htif_t(const std::vector<std::string>& args, reg_t initrd_start_, reg_t initrd_end_, const char* bootargs, bus_t &bus,std::function<void()> procs_init);
+  htif_t(const std::vector<std::string>& args);
   virtual ~htif_t();
 
   virtual void start();
@@ -49,7 +48,6 @@ class htif_t : public chunked_memif_t
  protected:
   virtual void reset() = 0;
   // (modified 4)
-  virtual void set_rom(bus_t &bus);
 
   // (modified )
 
@@ -82,11 +80,10 @@ class htif_t : public chunked_memif_t
   std::vector<processor_t*> procs; // (modified 5) protected
   size_t freq;
   std::string htif_isa;
-  std::unique_ptr<rom_device_t> boot_rom; // (modified 7) the make rom
   std::vector<std::pair<reg_t, mem_t*>> htif_mems;
-  std::string dtb;
   reg_t start_pc;
   reg_t rstvec;
+  bus_t bus;
 
   static const size_t INSNS_PER_RTC_TICK = 100; // 10 MHz clock for 1 BIPS core
   static const size_t CPU_HZ = 1000000000; // 1GHz CPU
@@ -96,8 +93,6 @@ class htif_t : public chunked_memif_t
   void register_devices();
   void usage(const char * program_name);
 
-  //(modified 5)
-  void make_dtb(reg_t initrd_start, reg_t initrd_end, const char* bootargs);
   //(modified 6)
   void chip_config();
   //(modified 7)

@@ -18,6 +18,7 @@
 
 class mmu_t;
 class remote_bitbang_t;
+// WARNING ! NEVER PASS DEVIVED CLASS PRIVATE TO BASE CLASS
 
 // this class encapsulates the processors and memory in a RISC-V machine.
 class sim_t : public htif_t, public simif_t
@@ -70,10 +71,10 @@ private:
   std::string dts;
   std::string dtb;
   std::string dtb_file;
+  std::unique_ptr<rom_device_t> boot_rom; // (modified 7) the make rom
   bool dtb_enabled;
   
   std::unique_ptr<clint_t> clint;
-  bus_t bus;
   log_file_t log_file;
 
   processor_t* get_core(const std::string& i);
@@ -96,6 +97,13 @@ private:
 
   // presents a prompt for introspection into the simulation
   void interactive();
+
+  void procs_init(std::vector<int> const &hartids,const char* isa,const char* priv,const char* varch,bool halted); 
+  void clint_init(bool);
+  void pmp_granularity_init();
+  void set_rom();
+
+
 
   // functions that help implement interactive()
   void interactive_help(const std::string& cmd, const std::vector<std::string>& args);
@@ -137,9 +145,6 @@ private:
   size_t chunk_align() { return 8; }
   size_t chunk_max_size() { return 8; }
 
-protected:
-  void init_procs(std::vector<int> const &hartids, const char* isa, 
-                          const char* priv, const char* varch, bool halted);
 
 public:
   // Initialize this after procs, because in debug_module_t::reset() we
