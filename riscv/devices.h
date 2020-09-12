@@ -25,6 +25,14 @@ class bus_t : public abstract_device_t {
   void add_device(reg_t addr, abstract_device_t* dev);
 
   std::pair<reg_t, abstract_device_t*> find_device(reg_t addr);
+  void print_bus() {
+    puts("detecter PRINTBUS start---");
+    for(auto &p : devices) {
+      printf("0x%llx ",p.first);
+    }
+    puts("");
+    puts("detecter PRINTBUS end---");
+  }
 
  private:
   std::map<reg_t, abstract_device_t*> devices;
@@ -43,6 +51,7 @@ class rom_device_t : public abstract_device_t {
 class mem_t : public abstract_device_t {
  public:
   mem_t(size_t size) : len(size) {
+    printf("initialuze a mems:(size:0x%llx)\n",size);
     if (!size)
       throw std::runtime_error("zero bytes of target memory requested");
     data = (char*)calloc(1, size);
@@ -53,9 +62,22 @@ class mem_t : public abstract_device_t {
   ~mem_t() { free(data); }
 
   bool load(reg_t addr, size_t len, uint8_t* bytes) { return false; }
-  bool store(reg_t addr, size_t len, const uint8_t* bytes) { return false; }
+/* // strange here, why just return false?!
+  bool store(reg_t addr, size_t len, const uint8_t* bytes) {
+    printf("detecter mems store, addr:0x%llx,len:%zu,byte*:%p",addr,len,bytes); 
+    return false; 
+  }
+  */
+  bool store(reg_t addr, size_t len, const uint8_t* bytes) {
+    printf("detecter mems store, addr:0x%llx,len:%zu,byte*:%p commit now!",addr,len,bytes); 
+
+    return false; 
+  }
   char* contents() { return data; }
   size_t size() { return len; }
+  void set_size(int _size) {
+    len = _size;
+  }
 
  private:
   char* data;

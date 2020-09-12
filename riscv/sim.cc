@@ -64,6 +64,7 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
              const debug_module_config_t &dm_config,
              const char *log_path,
              bool dtb_enabled, const char *dtb_file) :
+    start_pc(start_pc),
     htif_t(args),
     mems(mems),
     plugin_devices(plugin_devices),
@@ -71,7 +72,6 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
     initrd_start(initrd_start),
     initrd_end(initrd_end),
     bootargs(bootargs),
-    start_pc(start_pc),
     dtb_file(dtb_file ? dtb_file : ""),
     dtb_enabled(dtb_enabled),
     log_file(log_path),
@@ -87,8 +87,10 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
 
   signal(SIGINT, &handle_signal);
 
-  for (auto& x : mems)
-    bus.add_device(x.first, x.second);
+  if(argmap.find("mems=")==argmap.end()) {
+    for (auto& x : mems)
+      bus.add_device(x.first, x.second);
+  }
 
   for (auto& x : plugin_devices)
     bus.add_device(x.first, x.second);
@@ -118,13 +120,14 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
   */
   //make_dtb();
 
+
   procs_init(hartids,(htif_isa == "")? isa : htif_isa.c_str(),priv,varch,halted);
   make_dtb();
 
   clint_init(real_time_clint);
 
   pmp_granularity_init();
-
+  load_file();
 }
 
 void sim_t::pmp_granularity_init() 
@@ -281,6 +284,10 @@ void sim_t::set_procs_debug(bool value)
 
 static bool paddr_ok(reg_t addr)
 {
+  if((addr >> MAX_PADDR_BITS) == 0) {
+  //  printf("detecter paddr_ok ok\n");
+
+  } else puts("detecter paddr_ok not ok ");
   return (addr >> MAX_PADDR_BITS) == 0;
 }
 
@@ -293,9 +300,47 @@ bool sim_t::mmio_load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 {
-  if (addr + len < addr || !paddr_ok(addr + len - 1))
+  printf("detecter sim_t mmio_store addr=0x%llx,len=%zu,%p\n",addr,len,(uint8_t*)bytes);
+  if (addr + len < addr || !paddr_ok(addr + len - 1)){
+    printf("detecter sim_t mmio store not ok");
     return false;
+  }
   return bus.store(addr, len, bytes);
+}
+
+void sim_t::load_file() 
+{
+  #ifdef VF_DEBUG
+  puts("load_file start---\n");
+  #endif
+  std::string files_str = argmap["load_files="];
+  std::vector<std::string> files;
+  htif_helper_comma_separate(files_str,files);
+  #define PAIR_STR_T std::pair<std::string,std::string>
+  for(auto s:files){
+    PAIR_STR_T dst;
+    bool ret = htif_helper_underline_separate(s,dst.first,dst.second);
+    assert(ret == 0); // ret == 1 <=> load_file err 
+    size_t fsize = 0;
+    addr_t addr = std::stoull(dst.second,0,16); 
+    char* bin = htif_helper_get_file(dst.first,fsize);
+    assert(bin!=nullptr);
+
+    
+    #ifdef VF_DEBUG
+    printf("    s=%s\n    mem.write(addr=0x%llx,fsize=%zu,bin.get()=%p)\n",
+          s.c_str(),addr,fsize,bin);//bin.get());
+    #endif
+    mem.write(from_le(addr),fsize,bin);//bin.get());
+    #ifdef VF_DEBUG 
+    puts("    mem.write committed");
+    #endif
+    munmap(bin/*.get()*/,fsize);
+  }
+    //delete [] bin;
+  #ifdef VF_DEBUG
+  puts("load_file end---\n");
+  #endif
 }
 
 //(modified 4)
@@ -331,10 +376,11 @@ void sim_t::set_rom()
   puts(x);\
   printf("    "); \
   for(size_t i = 0; i < rom.size(); i++ )  \
-    printf("%d ",rom[i]);
+    printf("%d ",rom[i]);\
+  puts("|||");
   
 
-  PRINT_ROM("add reset_vec to rom:")
+  PRINT_ROM("add reset_vec to rom:\n")
   #endif
 
   
@@ -372,7 +418,7 @@ void sim_t::set_rom()
   boot_rom.reset(new rom_device_t(rom));
   bus.add_device(rstvec, boot_rom.get());
   #ifdef VF_DEBUG
-  printf("commit result\n    rstvec=%zu,boot_rom.get()=%p,rom.size()=%zu\nmake_rom end---",rstvec,boot_rom.get(),rom.size());
+  printf("commit result\n    rstvec=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\nmake_rom end---\n",rstvec,boot_rom.get(),rom.size());
   
   #endif
 }
@@ -451,8 +497,8 @@ char* sim_t::addr_to_mem(reg_t addr) {
   if (!paddr_ok(addr))
     return NULL;
   auto desc = bus.find_device(addr);
-  if (auto mem = dynamic_cast<mem_t*>(desc.second))
-    if (addr - desc.first < mem->size())
+  if (auto mem = dynamic_cast<mem_t*>(desc.second)) 
+    if (addr - desc.first < mem->size()) 
       return mem->contents() + (addr - desc.first);
   return NULL;
 }
@@ -482,12 +528,11 @@ void sim_t::write_chunk(addr_t taddr, size_t len, const void* src)
   assert(len == 8);
   uint64_t data;
   memcpy(&data, src, sizeof data);
+  //printf("detecter sim_t::write_chunk taddr=0x%llx,data_ptr=%p,data=%llx\n",taddr,&data,*(int64_t*)src);
   debug_mmu->store_uint64(taddr, from_le(data));
 }
 
 void sim_t::proc_reset(unsigned id)
 {
-  puts("detecter5.1");
   debug_module.proc_reset(id);
-  puts("detecter5.2");
 }

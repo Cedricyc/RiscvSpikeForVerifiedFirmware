@@ -116,9 +116,11 @@ reg_t reg_from_bytes(size_t len, const uint8_t* bytes)
 bool mmu_t::mmio_ok(reg_t addr, access_type type)
 {
   // Disallow access to debug region when not in debug mode
-  if (addr >= DEBUG_START && addr <= DEBUG_END && proc && !proc->state.debug_mode)
+  if (addr >= DEBUG_START && addr <= DEBUG_END && proc && !proc->state.debug_mode) {
+  //  printf("detecter mmio_ok, not ok\n");
     return false;
-
+  }
+  //puts("detecter mmio_ok ok ");
   return true;
 }
 
@@ -132,9 +134,10 @@ bool mmu_t::mmio_load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool mmu_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 {
+  printf("detecter mmio_store addr=0x%llx,len=%zu,byte=%p\n",addr,len);
   if (!mmio_ok(addr, STORE))
     return false;
-
+  
   return sim->mmio_store(addr, len, bytes);
 }
 
@@ -178,6 +181,7 @@ void mmu_t::store_slow_path(reg_t addr, reg_t len, const uint8_t* bytes, uint32_
     else
       refill_tlb(addr, paddr, host_addr, STORE);
   } else if (!mmio_store(paddr, len, bytes)) {
+    puts("detecter mmu.cc");
     throw trap_store_access_fault(addr, 0, 0);
   }
 }

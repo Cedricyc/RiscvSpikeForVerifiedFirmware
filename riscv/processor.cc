@@ -473,14 +473,8 @@ void processor_t::reset(reg_t rstvec)
   if (ext)
     ext->reset(); // reset the extension
 
-  puts("detecter4");
-  if (sim) {
-    puts("detecter4.1");
-    printf("detecter simif sim = %p\n");
+  if (sim) 
     sim->proc_reset(id);
-    puts("detecter4.2");
-  }
-  puts("detecter6");
 }
 
 // Count number of contiguous 0 bits starting from the LSB.
@@ -1748,6 +1742,7 @@ bool processor_t::load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool processor_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
+  puts("detecter processor store");
   switch (addr)
   {
     case 0:

@@ -76,7 +76,6 @@ htif_t::htif_t(const std::vector<std::string>& args) : htif_t()
   mems_config();
   make_flash_addr();
 
-  load_file();
 
 
   register_devices(); // ! this position remain doubt?!
@@ -92,8 +91,8 @@ void htif_t::start()
 {
   if (!targs.empty() && targs[0] != "none")
       load_program();
-
   reset();
+
 }
 
 std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload, reg_t* entry)
@@ -132,7 +131,11 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
   // (modified 3)
   reg_t shift_value = 0;
   if(htif_helper_bbl0_recognizer(path)) {
-    shift_value = std::stoull(argmap["shift_file="]);
+    try{
+      shift_value = std::stoull(argmap["shift_file="]);
+    } catch(...) {
+      shift_value = 0;
+    }
   }
 
   return load_elf(path.c_str(), &preload_aware_memif, entry, shift_value);
@@ -161,37 +164,6 @@ void htif_t::load_program()
     reg_t dummy_entry;
     load_payload(payload, &dummy_entry);
   }
-}
-
-void htif_t::load_file() 
-{
-  #ifdef VF_DEBUG
-  puts("load_file start---\n");
-  #endif
-  std::string files_str = argmap["load_files="];
-  std::vector<std::string> files;
-  htif_helper_comma_separate(files_str,files);
-  #define PAIR_STR_T std::pair<std::string,std::string>
-  for(auto &s : files) 
-  {
-    PAIR_STR_T dst;
-    bool ret = htif_helper_underline_separate(s,dst.first,dst.second);
-    assert(ret == 0); // ret == 1 <=> load_file err 
-    size_t fsize = 0;
-    addr_t addr = std::stoull(dst.second,0,16); 
-    std::unique_ptr<char> bin = htif_helper_get_file(dst.first,fsize);
-    assert(bin!=nullptr);
-
-    
-    #ifdef VF_DEBUG
-    printf("    s=%s\n    mem.write(addr=%zu,fsize=%zu,bin.get()=%p)\n",
-          s.c_str(),addr,fsize,bin.get());
-    #endif
-    mem.write(addr,fsize,bin.get());
-  }
-  #ifdef VF_DEBUG
-  puts("load_file end---\n");
-  #endif
 }
 
 
@@ -288,9 +260,21 @@ void htif_t::chrome_rom()
 //(modified 8)
 void htif_t::make_flash_addr() 
 {
-  start_pc = std::stoull(argmap["load_flash="]);
+
   #ifdef VF_DEBUG
-  printf("make_flash_addr start---\n    start_pc <- %zu\nmake_flash_addr end---",start_pc);
+  printf("make_flash_addr start---\n    argmap[loadflash=]=%s",argmap["load_flash="].c_str());
+  #endif
+
+  reg_t tmp;
+  try {
+    tmp = std::stoull(argmap["load_flash="]); // if ++load_flash exist, will cover --pc=
+  } catch(...) {
+    tmp = start_pc;
+  }
+  start_pc = tmp;
+
+  #ifdef VF_DEBUG
+  printf("    start_pc <- %llx\nmake_flash_addr end---\n",start_pc);
   #endif
 }
 
@@ -302,25 +286,19 @@ void htif_t::mems_config()
   #endif
   htif_mems = htif_helper_make_mems(argmap["mems="].c_str());
 
-  #ifdef VF_DEBUG
-  for(auto &x : htif_mems) {
-    printf("        bus.adddevice %zu,",x.first);
-    PRINT_MEM_T_PTR(x.second);
-    puts("");
-  }
-  puts("    preview ends");
-  #endif 
   
 
   for(auto& x : htif_mems)  {
+    bus.add_device(x.first,x.second);
     #ifdef VF_DEBUG
-    printf("        bus.adddevice %zu,",x.first);
+    printf("        htifmems :commit bus.add_device %llx,",x.first);
     PRINT_MEM_T_PTR(x.second);
     puts("");
     #endif
-    bus.add_device(x.first,x.second);
   }
+  #ifdef VF_DEBUG
   puts("mems_config end---");
+  #endif
 
 }
 
@@ -578,20 +556,26 @@ void htif_helper_merge_overlapping_memory_regions(std::vector<std::pair<reg_t, m
   // eliminate the containing parts
   std::sort(mems.begin(), mems.end(), htif_helper_sort_mem_region);
   reg_t start_page = 0, end_page = 0;
-  std::vector<std::pair<reg_t, mem_t*>>::reverse_iterator it = mems.rbegin();
-  std::vector<std::pair<reg_t, mem_t*>>::reverse_iterator _it = mems.rbegin();
-  for(; it != mems.rend(); ++it) {
+  std::vector<std::pair<reg_t, mem_t*>>::iterator it = mems.begin();
+  std::vector<std::pair<reg_t, mem_t*>>::iterator _it = mems.begin();
+  for(; it != mems.end(); ++it) {
     reg_t _start_page = it->first/PGSIZE;
     reg_t _end_page = _start_page + it->second->size()/PGSIZE;
     if (_start_page >= start_page && _end_page <= end_page) {
       // contains
-      mems.erase(std::next(it).base());
-    }else if ( _start_page < start_page && _end_page > start_page) {
+      it = mems.erase(it);
+      if(it == mems.end()) {
+        break;
+      }
+    }else if ( _start_page < end_page && _end_page > end_page) {
       // overlapping
-      _it->first = _start_page;
+      _it->second->set_size(start_page*PGSIZE);
       if (_end_page > end_page)
         end_page = _end_page;
-      mems.erase(std::next(it).base());
+      it = mems.erase(it);
+      if(it == mems.end()) {
+        break;
+      }
     }else {
       _it = it;
       start_page = _start_page;
@@ -609,7 +593,7 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
   auto mb = strtoull(arg, &p, 0);
 
   #ifdef VF_DEBUG
-  printf("helper_make_mems\n        mb=%x,p=%s\n",mb,p);
+  printf("helper_make_mems\n        mb=%llx,p=%s\n",mb,p);
   #endif 
 
   if (*p == 0) {
@@ -624,36 +608,18 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
   while (true) {
     auto base = strtoull(arg, &p, 0);
 
-    #ifdef VF_DEBUG 
-    printf("       observation 0: arg=%s,p=%s\n",arg,p);
-    #endif
 
     if (!*p || *p != ':') {
       printf("modified 7: err parsing, expecting :\n");
       assert(0);
     }
     auto size = strtoull(p + 1, &p, 0);
-
-    #ifdef VF_DEBUG 
-    printf("       observation 1: base=%x,size=%zu\n",base,size);
-    #endif
-
     // page-align base and size
     auto base0 = base, size0 = size;
     size += base0 % PGSIZE;
     base -= base0 % PGSIZE;
-
-    #ifdef VF_DEBUG 
-    printf("       observation 2: base=%x,size=%zu\n",base,size);
-    #endif
-
     if (size % PGSIZE != 0)
       size += PGSIZE - size % PGSIZE;
-
-    #ifdef VF_DEBUG 
-    printf("       observation 3: base=%x,size=%zu\n",base,size);
-    #endif
-
     if (base + size < base){
       printf("modified 7 : base+size<base\n");
       assert(0);
@@ -666,7 +632,7 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
     }
 
     #ifdef VF_DEBUG 
-    printf("        res.push_back(%x,(mem_t(%zu)))\n",base,size);
+    printf("        res.push_back(%llx,(mem_t(%zu)))\n",base,size);
     #endif
     res.push_back(std::make_pair(reg_t(base), new mem_t(size)));
     if (!*p)
@@ -679,14 +645,9 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
   }
   
   htif_helper_merge_overlapping_memory_regions(res);
-  #ifdef VF_DEBUG
   for(auto &x : res) {
-    printf("        bus.adddevice %zu,",x.first);
-    PRINT_MEM_T_PTR(x.second);
-    puts("");
+    printf("detecter mems final first:0x%llx,memsize=0x%llx\n",x.first,x.second->size());
   }
-  puts("helper preview ends");
-  #endif   
   return res;
 }
 
@@ -714,14 +675,14 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst)
   dst.clear();
   for(size_t pos = 0, nxpos = 0; pos<src.size() ; pos = nxpos + 1) 
   {
-    nxpos = src.find(',');
+    nxpos = src.find(',',pos);
     if(nxpos == std::string::npos)
       nxpos = src.size();
     dst.push_back(src.substr(pos,nxpos-pos));
   }
 
   #ifdef VF_DEBUG
-  puts("comma separate output dst=\n");
+  puts("comma separate output dst=");
   for(auto &s : dst) {
     printf("  %s,\n",s.c_str());
   }
@@ -769,7 +730,8 @@ bool htif_helper_underline_separate(std::string src, std::string &dst1, std::str
 }
 
 
-std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size) 
+//std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size) 
+char *htif_helper_get_file(std::string fn, size_t &ret_size) 
 {
   ret_size = 0;
   #ifdef VF_DEBUG
@@ -782,9 +744,12 @@ std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size)
   if (fstat(fd, &s) < 0)
     abort();
   size_t size = s.st_size;
-
+/*
   std::unique_ptr<char> buf((char*)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0));
   assert(buf.get() != MAP_FAILED);
+  */
+  char *buf = ((char*)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0));
+  
   close(fd);
   #ifdef VF_DEBUG
   printf("        openfile end, filesize=%zu\n",size);

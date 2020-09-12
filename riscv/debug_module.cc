@@ -922,8 +922,6 @@ bool debug_module_t::dmi_write(unsigned address, uint32_t value)
 
 void debug_module_t::proc_reset(unsigned id)
 {
-  puts("detecter5.1.1");
-  printf("detecter procreset:id=%d,hart_state.size()=%zu\n",id,hart_state.size());
   hart_state[id].havereset = true;
   hart_state[id].halted = false;
   hart_state[id].haltgroup = 0;

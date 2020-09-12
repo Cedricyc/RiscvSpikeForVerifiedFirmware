@@ -7,7 +7,7 @@ void bus_t::add_device(reg_t addr, abstract_device_t* dev)
   // container to sort the keys and provide ordered
   // iteration over this sort, which it does. (python's
   // SortedDict is a good analogy)
-  printf("add_device start---\n    addr=%zu,dev=%p\n",addr,dev);
+  printf("add_device start---\n    addr=0x%llx,dev=%p\n",addr,dev);
   devices[addr] = dev;
   printf("add_device end---\n");
 }
@@ -33,7 +33,9 @@ bool bus_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
   // See comments in bus_t::load
   auto it = devices.upper_bound(addr);
+  printf("detecter bus_t store addr=0x%llx len=%zu bytes=%p\n",addr,len,(uint8_t*)bytes);
   if (devices.empty() || it == devices.begin()) {
+    puts("detecter bus_t::store not ok");
     return false;
   }
   it--;
@@ -88,5 +90,6 @@ bool mmio_plugin_device_t::load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool mmio_plugin_device_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
+  puts("detecter mmio_plugin store");
   return (*plugin.store)(user_data, addr, len, bytes);
 }

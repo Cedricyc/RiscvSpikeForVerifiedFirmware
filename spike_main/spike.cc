@@ -141,7 +141,7 @@ static std::vector<std::pair<reg_t, mem_t*>> make_mems(const char* arg)
   auto mb = strtoull(arg, &p, 0);
 
   #ifdef VF_DEBUG
-  printf("SPIKEMAIN_make_mems\n    mb=%x,p=%s\n",mb,p);
+  printf("SPIKEMAIN_make_mems\n    mb=%llx,p=%s\n",mb,p);
   #endif 
 
   if (*p == 0) {
@@ -156,31 +156,19 @@ static std::vector<std::pair<reg_t, mem_t*>> make_mems(const char* arg)
   while (true) {
     auto base = strtoull(arg, &p, 0);
     
-    #ifdef VF_DEBUG 
-    printf("       observation 0: arg=%s,p=%s\n",arg,p);
-    #endif
 
     if (!*p || *p != ':')
       help();
     auto size = strtoull(p + 1, &p, 0);
 
-    #ifdef VF_DEBUG 
-    printf("       observation 1: base=%x,size=%zu\n",base,size);
-    #endif
 
     // page-align base and size
     auto base0 = base, size0 = size;
     size += base0 % PGSIZE;
     base -= base0 % PGSIZE;
-    #ifdef VF_DEBUG 
-    printf("       observation 2: base=%x,size=%zu\n",base,size);
-    #endif
 
     if (size % PGSIZE != 0)
       size += PGSIZE - size % PGSIZE;
-    #ifdef VF_DEBUG 
-    printf("       observation 3: base=%x,size=%zu\n",base,size);
-    #endif
     if (base + size < base)
       help();
 
@@ -190,7 +178,7 @@ static std::vector<std::pair<reg_t, mem_t*>> make_mems(const char* arg)
               base0, base0 + size0 - 1, PGSIZE / 1024, base, base + size - 1);
     }
     #ifdef VF_DEBUG 
-    printf("        res.push_back(%x,(mem_t(%zu)))\n",base,size);
+    printf("        res.push_back(%llx,(mem_t(%zu)))\n",base,size);
     #endif
     res.push_back(std::make_pair(reg_t(base), new mem_t(size)));
     if (!*p)
@@ -204,7 +192,7 @@ static std::vector<std::pair<reg_t, mem_t*>> make_mems(const char* arg)
 
   #ifdef VF_DEBUG
   for(auto &x : res) {
-    printf("        bus.adddevice %zu,",x.first);
+    printf("        bus.adddevice %llx,",x.first);
     PRINT_MEM_T_PTR(x.second);
     puts("");
   }

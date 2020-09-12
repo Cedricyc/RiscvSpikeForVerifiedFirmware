@@ -26,7 +26,7 @@
 #define PRINT_STD_VECTOR(x) \
     for(auto &p : x) {std::cout << p << " ";}
 #define PRINT_MEM_T_PTR(x) \
-    printf("(%zu,%s) ",x->size(),x->contents())
+    printf("(%llx,%s) ",x->size(),x->contents())
 
 class htif_t : public chunked_memif_t
 {
@@ -81,12 +81,14 @@ class htif_t : public chunked_memif_t
   size_t freq;
   std::string htif_isa;
   std::vector<std::pair<reg_t, mem_t*>> htif_mems;
+  std::unordered_map<std::string,std::string> argmap;//(modified 2)
   reg_t start_pc;
   reg_t rstvec;
   bus_t bus;
 
   static const size_t INSNS_PER_RTC_TICK = 100; // 10 MHz clock for 1 BIPS core
   static const size_t CPU_HZ = 1000000000; // 1GHz CPU
+  memif_t mem;
 
  private:
   void parse_arguments(int argc, char ** argv);
@@ -102,16 +104,13 @@ class htif_t : public chunked_memif_t
   void chrome_rom();
 
   void normal_load();
-  void load_file();
   
 
-  memif_t mem;
   reg_t entry;
   bool writezeros;
   std::vector<std::string> hargs;
   std::vector<std::string> targs;
   std::vector<std::string> plus_plus_load;
-  std::unordered_map<std::string,std::string> argmap;//(modified 2)
   std::string sig_file;
   addr_t sig_addr; // torture
   addr_t sig_len; // torture
@@ -202,7 +201,7 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst);
 
 bool htif_helper_underline_separate(std::string src, std::string &dst1, std::string &dst2);
 
-std::unique_ptr<char> htif_helper_get_file(std::string fn, size_t &ret_size);
+char* htif_helper_get_file(std::string fn, size_t &ret_size);
 
 
 /* Alignment guide for emulator.cc options:

@@ -15,5 +15,6 @@ bool rom_device_t::load(reg_t addr, size_t len, uint8_t* bytes)
 // not ok to store for rom
 bool rom_device_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
+  puts("detecter rom_store");
   return false;
 }

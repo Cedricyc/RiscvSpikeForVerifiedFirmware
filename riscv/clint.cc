@@ -47,6 +47,7 @@ bool clint_t::load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool clint_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
+  puts("detecter clint store");
   if (addr >= MSIP_BASE && addr + len <= MSIP_BASE + procs.size()*sizeof(msip_t)) {
     std::vector<msip_t> msip(procs.size());
     std::vector<msip_t> mask(procs.size(), 0);
