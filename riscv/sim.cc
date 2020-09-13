@@ -29,7 +29,7 @@ static void handle_signal(int sig)
 void sim_t::procs_init(std::vector<int> const &hartids,const char* isa,const char* priv,const char* varch,bool halted) 
 {
   #ifdef VF_DEBUG 
-  printf("init_procs start---\n    hartids=");
+  printf("############init_procs start############\n    hartids=");
   PRINT_STD_VECTOR(hartids);
   printf("\n    isa=%s,priv=%s,varch=%s,halted=%d\n",isa,priv,varch,halted);
   #endif
@@ -50,7 +50,7 @@ void sim_t::procs_init(std::vector<int> const &hartids,const char* isa,const cha
                               log_file.get(),rstvec);
   }        
   #ifdef VF_DEBUG
-  puts("init proc end---");
+  puts("############init proc end############\n");
   #endif
 }
 
@@ -132,20 +132,30 @@ sim_t::sim_t(const char* isa, const char* priv, const char* varch,
 
 void sim_t::pmp_granularity_init() 
 {  
+  #ifdef VF_DEBUG
+  puts("############pmp init start############");
+  #endif 
   size_t nprocs = procs.size();
   for (size_t i = 0; i < nprocs; i++) {
     reg_t pmp_num = 0, pmp_granularity = 0;
     fdt_parse_pmp_num((void *)dtb.c_str(), &pmp_num, "riscv");
     fdt_parse_pmp_alignment((void *)dtb.c_str(), &pmp_granularity, "riscv");
 
+    #ifdef VF_DEBUG
+      printf("    i:%zu,set_pmp_num:%zu,set_pmp_gran:%zu\n",i,pmp_num,pmp_granularity);
+    #endif
     procs[i]->set_pmp_num(pmp_num);
     procs[i]->set_pmp_granularity(pmp_granularity);
   }
+  #ifdef VF_DEBUG
+  puts("############pmp init end############\n");
+  #endif
   
 }
 
 void sim_t::clint_init(bool real_time_clint) 
 {
+  puts("############clint_t init start############");
   clint.reset(new clint_t(procs, CPU_HZ / INSNS_PER_RTC_TICK, real_time_clint));
   reg_t clint_base;
   if (fdt_parse_clint((void *)dtb.c_str(), &clint_base, "riscv,clint0")) {
@@ -153,6 +163,7 @@ void sim_t::clint_init(bool real_time_clint)
   } else {
     bus.add_device(clint_base, clint.get());
   }
+  puts("############clint_t init end############\n");
 
 }
 
@@ -161,7 +172,7 @@ void sim_t::make_dtb()
 { 
   //----dts generated from chip_config
   #ifdef VF_DEBUG
-  printf("make_dtb start---\n    INSNS_P_R_T=%zu,freq=%zu,initrd_start=%zu,initrd_end=%zu\n    bootargs=%s\n    procs.pc=",
+  printf("############make_dtb start############\n    INSNS_P_R_T=%zu,freq=%zu,initrd_start=%zu,initrd_end=%zu\n    bootargs=%s\n    procs.pc=",
   INSNS_PER_RTC_TICK,freq,initrd_start,initrd_end,bootargs);
   for(size_t i = 0;i < procs.size(); i++) 
     printf("%zu ",procs[i]->get_state()->pc);
@@ -181,7 +192,7 @@ void sim_t::make_dtb()
   dtb = dts_compile(dts);
 
   #ifdef VF_DEBUG
-  printf("    dtb=%s,size=%zu\nmake_dtb end---\n",dtb.c_str(),dtb.size());
+  printf("    dtb=%s,size=%zu\n############make_dtb end############\n\n",dtb.c_str(),dtb.size());
   #endif
 }
 sim_t::~sim_t()
@@ -311,7 +322,7 @@ bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 void sim_t::load_file() 
 {
   #ifdef VF_DEBUG
-  puts("load_file start---\n");
+  puts("############load_file start############");
   #endif
   std::string files_str = argmap["load_files="];
   std::vector<std::string> files;
@@ -333,13 +344,13 @@ void sim_t::load_file()
     #endif
     mem.write(from_le(addr),fsize,bin);//bin.get());
     #ifdef VF_DEBUG 
-    puts("    mem.write committed");
+    puts("    mem.write committed######");
     #endif
     munmap(bin/*.get()*/,fsize);
   }
     //delete [] bin;
   #ifdef VF_DEBUG
-  puts("load_file end---\n");
+  puts("############load_file end############\n\n");
   #endif
 }
 
@@ -348,7 +359,7 @@ void sim_t::load_file()
 void sim_t::set_rom()
 {
   #ifdef VF_DEBUG
-  puts("make_rom start---");
+  puts("############make_rom start############");
   #endif 
   const int reset_vec_size = 8;
   
@@ -418,7 +429,8 @@ void sim_t::set_rom()
   boot_rom.reset(new rom_device_t(rom));
   bus.add_device(rstvec, boot_rom.get());
   #ifdef VF_DEBUG
-  printf("commit result\n    rstvec=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\nmake_rom end---\n",rstvec,boot_rom.get(),rom.size());
+  printf("    commit result\n    rstvec=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\n############make_rom end ############\n\n",rstvec,boot_rom.get(),rom.size());
+
   
   #endif
 }

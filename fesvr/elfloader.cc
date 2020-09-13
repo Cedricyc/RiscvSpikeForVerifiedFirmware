@@ -15,6 +15,8 @@
 #include <vector>
 #include <map>
 
+#define ELF_DEBUG
+
 std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* entry, reg_t shift_value)// (modified 3)
 {
   int fd = open(fn, O_RDONLY);
@@ -48,9 +50,11 @@ std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* 
       if(bswap(ph[i].p_type) == PT_LOAD && bswap(ph[i].p_memsz)) {	\
         if (bswap(ph[i].p_filesz)) {					\
           assert(size >= bswap(ph[i].p_offset) + bswap(ph[i].p_filesz)); \
+          printf("        ph[%u].p_filesz:0x%llx,paddr:0x%llx,shift:0x%llx\n",i,ph[i].p_filesz,bswap(ph[i].p_paddr), bswap(shift_value));\
           memif->write(bswap(ph[i].p_paddr) + bswap(shift_value)/*(modified 3)*/, bswap(ph[i].p_filesz), (uint8_t*)buf + bswap(ph[i].p_offset)); \
         } \
         zeros.resize(bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz)); \
+        printf("        zerosize:0x%llx\n",zeros.size());\
         memif->write(bswap(ph[i].p_paddr) + bswap(ph[i].p_filesz) + bswap(shift_value)/* (modified 3) */, bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz), &zeros[0]); \
       } \
     } \
@@ -83,12 +87,20 @@ std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* 
     } \
   } while(0)
 
+  #ifdef ELF_DEBUG
+    puts("    ############load_elf start#############");
+  #endif
+
   if (IS_ELF32(*eh64))
     LOAD_ELF(Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr, Elf32_Sym, from_le);
   else
     LOAD_ELF(Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Sym, from_le);
 
   munmap(buf, size);
+  #ifdef ELF_DEBUG
+    puts("    ############load_elf end#############");
+  #endif
+
 
   return symbols;
 }

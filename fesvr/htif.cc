@@ -143,6 +143,7 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
 
 void htif_t::load_program()
 {
+  puts("############load program start############");
   std::map<std::string, uint64_t> symbols = load_payload(targs[0], &entry);
 
   if (symbols.count("tohost") && symbols.count("fromhost")) {
@@ -164,6 +165,7 @@ void htif_t::load_program()
     reg_t dummy_entry;
     load_payload(payload, &dummy_entry);
   }
+  puts("############load program end############\n");
 }
 
 
@@ -255,6 +257,7 @@ void htif_t::chrome_rom()
   if(argmap.find("chrome_rom")!=argmap.end()) {
     rstvec = 0x800d0000;
   }
+  printf("############chrome_rom start############\n    rstvec <- 0x%llx, committed\n############chrome_rom end############\n\n");
 }
 
 //(modified 8)
@@ -262,7 +265,7 @@ void htif_t::make_flash_addr()
 {
 
   #ifdef VF_DEBUG
-  printf("make_flash_addr start---\n    argmap[loadflash=]=%s",argmap["load_flash="].c_str());
+  printf("############make_flash_addr start############\n    argmap[loadflash=]=%s",argmap["load_flash="].c_str());
   #endif
 
   reg_t tmp;
@@ -274,7 +277,7 @@ void htif_t::make_flash_addr()
   start_pc = tmp;
 
   #ifdef VF_DEBUG
-  printf("    start_pc <- %llx\nmake_flash_addr end---\n",start_pc);
+  printf("    start_pc <- %llx, committed\nmake_flash_addr end############\n\n",start_pc);
   #endif
 }
 
@@ -282,7 +285,7 @@ void htif_t::make_flash_addr()
 void htif_t::mems_config() 
 {
   #ifdef VF_DEBUG
-  puts("mems_config start---");
+  puts("############mems_config start############");
   #endif
   htif_mems = htif_helper_make_mems(argmap["mems="].c_str());
 
@@ -297,7 +300,7 @@ void htif_t::mems_config()
     #endif
   }
   #ifdef VF_DEBUG
-  puts("mems_config end---");
+  puts("############mems_config end############\n");
   #endif
 
 }
@@ -307,10 +310,10 @@ void htif_t::chip_config()
 {
   size_t frequency = CPU_HZ, cpu_num = 1;
   htif_isa = "";
-  //----parsing the chip_config----
+  //############\n-parsing the chip_config############\n-
   auto tmp = argmap["chip_config="];
   #ifdef VF_DEBUG
-  printf("chip config start---\n    argmap[chip_config]=%s\n",tmp.c_str());
+  printf("############chip config start############\n    argmap[chip_config]=%s\n",tmp.c_str());
   #endif
   size_t i = 0;
   for(bool flag = 0; !flag ; ) {
@@ -654,7 +657,7 @@ static std::vector<std::pair<reg_t, mem_t*>> htif_helper_make_mems(const char* a
 bool htif_helper_bbl0_recognizer(std::string &path) 
 {
   #ifdef VF_DEBUG
-    printf("bbl0 recognizer %s\n",path.c_str());
+    printf("    bbl0 recognizer %s\n",path.c_str());
   #endif
   size_t len = path.size();
   if(len-4<0) 
@@ -670,7 +673,7 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst)
       output {"abc","12_3","ak2f"}
   */
   #ifdef VF_DEBUG 
-    printf("comma_separate input src=%s\n",src.c_str());
+    printf("    comma_separate input src=%s\n",src.c_str());
   #endif 
   dst.clear();
   for(size_t pos = 0, nxpos = 0; pos<src.size() ; pos = nxpos + 1) 
@@ -682,9 +685,9 @@ void htif_helper_comma_separate(std::string src, std::vector<std::string> &dst)
   }
 
   #ifdef VF_DEBUG
-  puts("comma separate output dst=");
+  puts("    comma separate output dst=");
   for(auto &s : dst) {
-    printf("  %s,\n",s.c_str());
+    printf("      %s,\n",s.c_str());
   }
   #endif
   
