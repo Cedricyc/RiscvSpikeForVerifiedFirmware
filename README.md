@@ -63,7 +63,7 @@ Here we list the 11 module and its functionality.
 
 Bolden texts are output that influence the latter simulator execution or input need outside influence. Normal texts are internal information.
 
-![image-20200913234720795](C:\Users\yuchengchen\AppData\Roaming\Typora\typora-user-images\image-20200913234720795.png)
+![1.png](./figs/1.png)
 
 This graph, red arrow mean dependency. Green arrow means external output. 
 
