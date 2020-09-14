@@ -16,6 +16,7 @@ bool bus_t::load(reg_t addr, size_t len, uint8_t* bytes)
 {
   // Find the device with the base address closest to but
   // less than addr (price-is-right search)
+  //puts("detecter bus_load trigger");
   auto it = devices.upper_bound(addr);
   if (devices.empty() || it == devices.begin()) {
     // Either the bus is empty, or there weren't 
@@ -33,9 +34,9 @@ bool bus_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
   // See comments in bus_t::load
   auto it = devices.upper_bound(addr);
-  printf("detecter bus_t store addr=0x%llx len=%zu bytes=%p\n",addr,len,(uint8_t*)bytes);
+  //printf("detecter bus_t store addr=0x%llx len=%zu bytes=%p\n",addr,len,(uint8_t*)bytes);
   if (devices.empty() || it == devices.begin()) {
-    puts("detecter bus_t::store not ok");
+    //puts("detecter bus_t::store not ok");
     return false;
   }
   it--;
@@ -46,6 +47,7 @@ std::pair<reg_t, abstract_device_t*> bus_t::find_device(reg_t addr)
 {
   // See comments in bus_t::load
   auto it = devices.upper_bound(addr);
+  //print_bus();
   if (devices.empty() || it == devices.begin()) {
     return std::make_pair((reg_t)0, (abstract_device_t*)NULL);
   }
@@ -90,6 +92,5 @@ bool mmio_plugin_device_t::load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool mmio_plugin_device_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
-  puts("detecter mmio_plugin store");
   return (*plugin.store)(user_data, addr, len, bytes);
 }

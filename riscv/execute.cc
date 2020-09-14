@@ -208,6 +208,7 @@ bool processor_t::slow_path()
 // fetch/decode/execute loop
 void processor_t::step(size_t n)
 {
+  //puts("########detecter now exec!########");
   if (!state.debug_mode) {
     if (halt_request == HR_REGULAR) {
       enter_debug_mode(DCSR_CAUSE_DEBUGINT);
@@ -222,6 +223,7 @@ void processor_t::step(size_t n)
   while (n > 0) {
     size_t instret = 0;
     reg_t pc = state.pc;
+    //printf("    process_t::step pc=0x%llx\n",pc);
     mmu_t* _mmu = mmu;
 
     #define advance_pc() \
@@ -316,6 +318,7 @@ void processor_t::step(size_t n)
 
         advance_pc();
       }
+      //printf("    process_t::step pc=0x%llx\n",pc);
     }
     catch(trap_t& t)
     {

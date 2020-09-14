@@ -44,7 +44,6 @@ processor_t::processor_t(const char* isa, const char* priv, const char* varch,
 
   set_pmp_granularity(1 << PMP_SHIFT);
   set_pmp_num(state.max_pmp);
-  puts("detecter2");
   reset(rstvec);
 }
 
@@ -453,7 +452,6 @@ void processor_t::enable_log_commits()
 
 void processor_t::reset(reg_t rstvec)
 {
-  puts("detecter3");
   state.reset(rstvec,max_isa);
 
   state.mideleg = supports_extension('H') ? MIDELEG_FORCED_MASK : 0;
@@ -751,10 +749,14 @@ void processor_t::disasm(insn_t insn)
   uint64_t bits = insn.bits() & ((1ULL << (8 * insn_length(insn.bits()))) - 1);
   if (last_pc != state.pc || last_bits != bits) {
     if (executions != 1) {
-      fprintf(log_file, "core %3d: Executed %" PRIx64 " times\n", id, executions);
+      //fprintf(log_file, "core %3d: Executed %" PRIx64 " times\n", id, executions);
+      printf("core %3d: Executed %" PRIx64 " times\n", id, executions);
     }
 
-    fprintf(log_file, "core %3d: 0x%016" PRIx64 " (0x%08" PRIx64 ") %s\n",
+    /*fprintf(log_file, "core %3d: 0x%016" PRIx64 " (0x%08" PRIx64 ") %s\n",
+            id, state.pc, bits, disassembler->disassemble(insn).c_str());*/
+
+    printf("core %3d: 0x%016" PRIx64 " (0x%08" PRIx64 ") %s\n",
             id, state.pc, bits, disassembler->disassemble(insn).c_str());
     last_pc = state.pc;
     last_bits = bits;

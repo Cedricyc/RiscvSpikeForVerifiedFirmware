@@ -134,7 +134,7 @@ bool mmu_t::mmio_load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool mmu_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 {
-  printf("detecter mmio_store addr=0x%llx,len=%zu,byte=%p\n",addr,len);
+  //printf("detecter mmio_store addr=0x%llx,len=%zu,byte=%p\n",addr,len);
   if (!mmio_ok(addr, STORE))
     return false;
   
@@ -144,7 +144,7 @@ bool mmu_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 void mmu_t::load_slow_path(reg_t addr, reg_t len, uint8_t* bytes, uint32_t xlate_flags)
 {
   reg_t paddr = translate(addr, len, LOAD, xlate_flags);
-
+  //printf("detecter load_slow_path: addr:0x%llx,paddr:0x%llx,len:0x%llx\n",addr,paddr,len);
   if (auto host_addr = sim->addr_to_mem(paddr)) {
     memcpy(bytes, host_addr, len);
     if (tracer.interested_in_range(paddr, paddr + PGSIZE, LOAD))

@@ -233,6 +233,7 @@ int sim_t::run()
 
 void sim_t::step(size_t n)
 {
+  //puts("detectere sim_t::step");
   for (size_t i = 0, steps = 0; i < n; i += steps)
   {
     steps = std::min(n - i, INTERLEAVE - current_step);
@@ -298,12 +299,13 @@ static bool paddr_ok(reg_t addr)
   if((addr >> MAX_PADDR_BITS) == 0) {
   //  printf("detecter paddr_ok ok\n");
 
-  } else puts("detecter paddr_ok not ok ");
+  } else ;//puts("detecter paddr_ok not ok ");
   return (addr >> MAX_PADDR_BITS) == 0;
 }
 
 bool sim_t::mmio_load(reg_t addr, size_t len, uint8_t* bytes)
 {
+  //puts("detecter sim_t::mmioload");
   if (addr + len < addr || !paddr_ok(addr + len - 1))
     return false;
   return bus.load(addr, len, bytes);
@@ -429,7 +431,7 @@ void sim_t::set_rom()
   boot_rom.reset(new rom_device_t(rom));
   bus.add_device(rstvec, boot_rom.get());
   #ifdef VF_DEBUG
-  printf("    commit result\n    rstvec=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\n############make_rom end ############\n\n",rstvec,boot_rom.get(),rom.size());
+  printf("    commit result\n    rstvec=0x%llx,start_pc=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\n############make_rom end ############\n\n",rstvec,start_pc,boot_rom.get(),rom.size());
 
   
   #endif
@@ -509,9 +511,15 @@ char* sim_t::addr_to_mem(reg_t addr) {
   if (!paddr_ok(addr))
     return NULL;
   auto desc = bus.find_device(addr);
-  if (auto mem = dynamic_cast<mem_t*>(desc.second)) 
-    if (addr - desc.first < mem->size()) 
+  //printf("detecter addr:0x%llx,desc.fir:%llx,desc.sec:%p\n",addr,desc.first,desc.second);
+  if (auto mem = dynamic_cast<mem_t*>(desc.second)) {
+    //printf("detecter addr:0x%llx,desc.first:0x%llx,memsize:0x%llx\n",addr,desc.first,mem->size());
+    if (addr - desc.first < mem->size())  {
       return mem->contents() + (addr - desc.first);
+    }
+  }
+  
+  puts("detecter::addr_to_mem not ok");
   return NULL;
 }
 
@@ -531,6 +539,7 @@ void sim_t::idle()
 void sim_t::read_chunk(addr_t taddr, size_t len, void* dst)
 {
   assert(len == 8);
+  //printf("detecter sim_t::read_chunk taddr=0x%llx,len=0x%llx\n",taddr,len);
   auto data = to_le(debug_mmu->load_uint64(taddr));
   memcpy(dst, &data, sizeof data);
 }

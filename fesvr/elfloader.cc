@@ -50,7 +50,7 @@ std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* 
       if(bswap(ph[i].p_type) == PT_LOAD && bswap(ph[i].p_memsz)) {	\
         if (bswap(ph[i].p_filesz)) {					\
           assert(size >= bswap(ph[i].p_offset) + bswap(ph[i].p_filesz)); \
-          printf("        ph[%u].p_filesz:0x%llx,paddr:0x%llx,shift:0x%llx\n",i,ph[i].p_filesz,bswap(ph[i].p_paddr), bswap(shift_value));\
+          printf("        ph[%u].p_filesz:0x%llx,paddr:0x%llx,shift:0x%llx,final_addr:0x%llx\n",i,ph[i].p_filesz,bswap(ph[i].p_paddr), bswap(shift_value),bswap(ph[i].p_paddr) + bswap(shift_value));\
           memif->write(bswap(ph[i].p_paddr) + bswap(shift_value)/*(modified 3)*/, bswap(ph[i].p_filesz), (uint8_t*)buf + bswap(ph[i].p_offset)); \
         } \
         zeros.resize(bswap(ph[i].p_memsz) - bswap(ph[i].p_filesz)); \
@@ -95,6 +95,19 @@ std::map<std::string, uint64_t> load_elf(const char* fn, memif_t* memif, reg_t* 
     LOAD_ELF(Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr, Elf32_Sym, from_le);
   else
     LOAD_ELF(Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Sym, from_le);
+
+  // For bbl0 shifting
+  /*
+  if (symbols.count("tohost") && symbols.count("fromhost")) {
+    printf("    original tohost:0x%llx,fromhost:0x%llx\n",symbols["tohost"],symbols["fromhost"]);
+    symbols["tohost"] += shift_value;
+    symbols["fromhost"] += shift_value;
+  }
+  if (symbols.count("begin_signature") && symbols.count("end_signature"))
+  {
+    printf("    begin_signature:0x%llx\n");
+    symbols["begin_signature"] += shift_value;
+  }*/
 
   munmap(buf, size);
   #ifdef ELF_DEBUG

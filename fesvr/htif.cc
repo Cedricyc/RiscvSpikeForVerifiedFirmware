@@ -132,10 +132,11 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
   reg_t shift_value = 0;
   if(htif_helper_bbl0_recognizer(path)) {
     try{
-      shift_value = std::stoull(argmap["shift_file="]);
+      shift_value = std::stoull(argmap["shift_file="],0,16);
     } catch(...) {
       shift_value = 0;
     }
+    printf("    loading bbl0, shift_value=0x%llx\n",shift_value);
   }
 
   return load_elf(path.c_str(), &preload_aware_memif, entry, shift_value);
@@ -257,7 +258,7 @@ void htif_t::chrome_rom()
   if(argmap.find("chrome_rom")!=argmap.end()) {
     rstvec = 0x800d0000;
   }
-  printf("############chrome_rom start############\n    rstvec <- 0x%llx, committed\n############chrome_rom end############\n\n");
+  printf("############chrome_rom start############\n    rstvec <- 0x%llx, committed\n############chrome_rom end############\n\n",rstvec);
 }
 
 //(modified 8)
@@ -268,16 +269,16 @@ void htif_t::make_flash_addr()
   printf("############make_flash_addr start############\n    argmap[loadflash=]=%s",argmap["load_flash="].c_str());
   #endif
 
-  reg_t tmp;
+  reg_t tmp = start_pc;
   try {
     tmp = std::stoull(argmap["load_flash="]); // if ++load_flash exist, will cover --pc=
   } catch(...) {
-    tmp = start_pc;
+    start_pc = tmp;
   }
   start_pc = tmp;
 
   #ifdef VF_DEBUG
-  printf("    start_pc <- %llx, committed\nmake_flash_addr end############\n\n",start_pc);
+  printf("    start_pc <- %llx, committed\n#############make_flash_addr end############\n\n",start_pc);
   #endif
 }
 
