@@ -480,6 +480,6 @@ Done vboot
 [222175.000000] [<ffffffe0008dedfc>] rcu_gp_kthread+0x35c/0xbe4
 [222500.000000] [<ffffffe00089e3f0>] kthread+0x114/0x128
 [222790.000000] [<ffffffe0008781fc>] ret_from_exception+0x0/0x10
-############make_rom end ############
 ```
+Successfully run into kernel.
 
