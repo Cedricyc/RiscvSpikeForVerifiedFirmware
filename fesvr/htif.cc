@@ -258,6 +258,9 @@ void htif_t::chrome_rom()
   if(argmap.find("chrome_rom")!=argmap.end()) {
     rstvec = 0x800d0000;
   }
+  if(argmap.find("rstvec=")!=argmap.end()) {
+    rstvec = stoull(argmap["rstvec="],0,16);
+  }
   printf("############chrome_rom start############\n    rstvec <- 0x%llx, committed\n############chrome_rom end############\n\n",rstvec);
 }
 
@@ -266,16 +269,15 @@ void htif_t::make_flash_addr()
 {
 
   #ifdef VF_DEBUG
-  printf("############make_flash_addr start############\n    argmap[loadflash=]=%s",argmap["load_flash="].c_str());
+  printf("############make_flash_addr start############\n");
   #endif
 
-  reg_t tmp = start_pc;
-  try {
-    tmp = std::stoull(argmap["load_flash="]); // if ++load_flash exist, will cover --pc=
-  } catch(...) {
-    start_pc = tmp;
+  if(argmap.find("load_flash=") != argmap.end()) {
+    start_pc = std::stoull(argmap["load_flash="],0,16); // if ++load_flash exist, will cover --pc=
   }
-  start_pc = tmp;
+  if(argmap.find("start_pc") != argmap.end()) {
+    start_pc = std::stoull(argmap["start_pc="],0,16); // if ++load_flash exist, will cover --pc=
+  }
 
   #ifdef VF_DEBUG
   printf("    start_pc <- %llx, committed\n#############make_flash_addr end############\n\n",start_pc);

@@ -152,6 +152,7 @@ void mmu_t::load_slow_path(reg_t addr, reg_t len, uint8_t* bytes, uint32_t xlate
     else
       refill_tlb(addr, paddr, host_addr, LOAD);
   } else if (!mmio_load(paddr, len, bytes)) {
+    printf("trap!! detecter at load slow path addr:0x%llx,len:0x%llx,paddr:0x%llx\n",addr,len,paddr);
     throw trap_load_access_fault(addr, 0, 0);
   }
 
@@ -166,7 +167,6 @@ void mmu_t::load_slow_path(reg_t addr, reg_t len, uint8_t* bytes, uint32_t xlate
 void mmu_t::store_slow_path(reg_t addr, reg_t len, const uint8_t* bytes, uint32_t xlate_flags)
 {
   reg_t paddr = translate(addr, len, STORE, xlate_flags);
-
   if (!matched_trigger) {
     reg_t data = reg_from_bytes(len, bytes);
     matched_trigger = trigger_exception(OPERATION_STORE, addr, data);
@@ -181,7 +181,7 @@ void mmu_t::store_slow_path(reg_t addr, reg_t len, const uint8_t* bytes, uint32_
     else
       refill_tlb(addr, paddr, host_addr, STORE);
   } else if (!mmio_store(paddr, len, bytes)) {
-    puts("detecter mmu.cc");
+    printf("trap!! detecter at store slow path addr:0x%llx,len:0x%llx,paddr:0x%llx\n",addr,len,paddr);
     throw trap_store_access_fault(addr, 0, 0);
   }
 }

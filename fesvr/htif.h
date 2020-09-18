@@ -253,7 +253,9 @@ const std::unordered_map<std::string,bool> is_keyword = {
   {"shift_file",1},
   {"mems",1},
   {"normal_load",1},
-  {"load_to_flash",1}
+  {"load_to_flash",1},
+  {"start_pc",1},
+  {"rstvec",1}
 };
 
 #endif // __HTIF_H

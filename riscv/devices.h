@@ -69,7 +69,7 @@ class mem_t : public abstract_device_t {
   }
   */
   bool store(reg_t addr, size_t len, const uint8_t* bytes) {
-    printf("detecter mems store, addr:0x%llx,len:%zu,byte*:%p commit now!",addr,len,bytes); 
+    printf("detecter mems store, this shouldn't be called addr:0x%llx,len:%zu,byte*:%p commit now!\n",addr,len,bytes); 
 
     return false; 
   }

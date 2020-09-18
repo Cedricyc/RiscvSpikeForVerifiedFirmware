@@ -34,7 +34,7 @@ bool bus_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 {
   // See comments in bus_t::load
   auto it = devices.upper_bound(addr);
-  //printf("detecter bus_t store addr=0x%llx len=%zu bytes=%p\n",addr,len,(uint8_t*)bytes);
+  //printf("detecter store bus_t store addr=0x%llx len=%zu bytes=%p\n",addr,len,(uint8_t*)bytes);
   if (devices.empty() || it == devices.begin()) {
     //puts("detecter bus_t::store not ok");
     return false;

@@ -40,7 +40,6 @@ void sim_t::procs_init(std::vector<int> const &hartids,const char* isa,const cha
                 << procs.size() << ").\n";
       exit(1);
   }
-  puts("detecter");
   // (modified 6)     !!!! this need in fesvr!!! 
 
   for (size_t i = 0; i < procs.size(); i++) {
@@ -299,7 +298,7 @@ static bool paddr_ok(reg_t addr)
   if((addr >> MAX_PADDR_BITS) == 0) {
   //  printf("detecter paddr_ok ok\n");
 
-  } else ;//puts("detecter paddr_ok not ok ");
+  } else printf("detecter paddr_ok not ok  addr=0x%llx\n",addr);
   return (addr >> MAX_PADDR_BITS) == 0;
 }
 
@@ -313,9 +312,9 @@ bool sim_t::mmio_load(reg_t addr, size_t len, uint8_t* bytes)
 
 bool sim_t::mmio_store(reg_t addr, size_t len, const uint8_t* bytes)
 {
-  printf("detecter sim_t mmio_store addr=0x%llx,len=%zu,%p\n",addr,len,(uint8_t*)bytes);
+  //printf("detecter sim_t mmio_store addr=0x%llx,len=%zu,%p\n",addr,len,(uint8_t*)bytes);
   if (addr + len < addr || !paddr_ok(addr + len - 1)){
-    printf("detecter sim_t mmio store not ok");
+    //printf("detecter sim_t mmio store not ok");
     return false;
   }
   return bus.store(addr, len, bytes);
@@ -519,7 +518,7 @@ char* sim_t::addr_to_mem(reg_t addr) {
     }
   }
   
-  puts("detecter::addr_to_mem not ok");
+  //puts("detecter::addr_to_mem not ok");
   return NULL;
 }
 
