@@ -386,9 +386,11 @@ void sim_t::set_rom()
   #ifdef VF_DEBUG
   #define PRINT_ROM(x) \
   puts(x);\
-  printf("    "); \
-  for(size_t i = 0; i < rom.size(); i++ )  \
-    printf("%d ",rom[i]);\
+  for(size_t i = 0; i < rom.size(); i+=(sizeof(uint32_t)) ) { \
+    uint32_t data=0;\
+    memcpy(&data,(void*)&*rom.begin()+i,sizeof(uint32_t));\
+    printf("%8x%c",data," \n"[(i+4)%16 == 0]);\
+  }\
   puts("|||");
   
 
@@ -427,8 +429,9 @@ void sim_t::set_rom()
   PRINT_ROM("add align to rom:")
   #endif
 
-  boot_rom.reset(new rom_device_t(rom));
-  bus.add_device(rstvec, boot_rom.get());
+  //boot_rom.reset(new rom_device_t(rom));
+  mem.write(from_le(rstvec),rom.size(),(char*)&*rom.begin());
+  //bus.add_device(rstvec, boot_rom.get());
   #ifdef VF_DEBUG
   printf("    commit result\n    rstvec=0x%llx,start_pc=0x%llx,boot_rom.get()=%p,rom.size()=0x%llx\n############make_rom end ############\n\n",rstvec,start_pc,boot_rom.get(),rom.size());
 
